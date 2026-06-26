@@ -28,6 +28,63 @@ TaskMaster API es una aplicacion web funcional para gestionar tareas corporativa
 - Usuario: `admin@taskmaster.local`
 - Password: `Admin123*`
 
+## Login con Google
+
+La interfaz ya deja preparado el acceso con Google. El boton se activa cuando configuras las credenciales OAuth del proveedor.
+
+### 1. Crear el proyecto en Google Cloud
+
+1. Entra a `https://console.cloud.google.com/`
+2. Crea un proyecto nuevo o usa uno existente.
+3. Ve a `APIs y servicios > Pantalla de consentimiento OAuth`.
+4. Elige `Externo` si vas a probar con cuentas personales.
+5. Completa nombre de la app, correo de soporte y dominios si Google te los pide.
+
+### 2. Crear credenciales OAuth
+
+1. Ve a `APIs y servicios > Credenciales`.
+2. Haz clic en `Crear credenciales > ID de cliente de OAuth`.
+3. Tipo de aplicacion: `Aplicacion web`.
+4. Agrega este redirect URI:
+
+```text
+http://localhost:8080/login/oauth2/code/google
+```
+
+Si arrancas la app en otro puerto, cambia el puerto aqui tambien. Por ejemplo, para `8081`:
+
+```text
+http://localhost:8081/login/oauth2/code/google
+```
+
+### 3. Configurar variables en tu entorno local
+
+Antes de ejecutar la app, define estas variables en PowerShell:
+
+```powershell
+$env:SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID="pega-aqui-tu-client-id"
+$env:SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET="pega-aqui-tu-client-secret"
+```
+
+Luego inicia la aplicacion normalmente:
+
+```powershell
+mvn spring-boot:run
+```
+
+### 4. Usuarios de prueba
+
+Si la app esta en modo `Externo` y aun no ha sido publicada por Google, agrega tu correo en:
+
+`Pantalla de consentimiento OAuth > Usuarios de prueba`
+
+### 5. Como validar que quedo bien
+
+- El boton `Continuar con Google` se habilita en el login.
+- Al hacer clic, Google muestra la pantalla de autorizacion.
+- Al volver a la app, Spring redirige a `/login/oauth2/code/google`.
+- Si todo salio bien, vuelves a la home con sesion iniciada.
+
 ## Ejecucion local
 
 1. Instala Maven si aun no esta disponible en tu entorno.
@@ -36,13 +93,17 @@ TaskMaster API es una aplicacion web funcional para gestionar tareas corporativa
 
 ## Ejecucion con Docker
 
-La forma mas practica para usar Docker en este proyecto es levantar la app y PostgreSQL juntos con Compose:
+Si, el proyecto ya queda preparado para trabajar con Docker. La forma estable es usar `compose.yaml` con un archivo `.env`, para no estar corrigiendo puertos o credenciales cada vez.
+
+1. Crea tu archivo `.env` tomando como base `.env.example`.
+2. Si vas a usar Google Login, completa tambien `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`.
+3. Levanta todo con:
 
 ```powershell
 docker compose up --build
 ```
 
-Luego abre `http://localhost:8080`.
+Luego abre `http://localhost:8080` o el puerto que definas en `APP_PORT`.
 
 Servicios incluidos:
 

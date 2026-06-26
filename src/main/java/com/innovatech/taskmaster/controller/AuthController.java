@@ -1,8 +1,10 @@
 package com.innovatech.taskmaster.controller;
 
 import com.innovatech.taskmaster.dto.AuthRequest;
+import com.innovatech.taskmaster.dto.AuthProviderResponse;
 import com.innovatech.taskmaster.dto.AuthResponse;
 import com.innovatech.taskmaster.dto.CurrentUserResponse;
+import com.innovatech.taskmaster.dto.RegisterRequest;
 import com.innovatech.taskmaster.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +32,19 @@ public class AuthController {
         HttpServletRequest httpServletRequest
     ) {
         return ResponseEntity.ok(authService.login(request, httpServletRequest));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<AuthResponse> register(
+        @Valid @RequestBody RegisterRequest request,
+        HttpServletRequest httpServletRequest
+    ) {
+        return ResponseEntity.ok(authService.register(request, httpServletRequest));
+    }
+
+    @GetMapping("/providers")
+    public ResponseEntity<AuthProviderResponse> providers() {
+        return ResponseEntity.ok(authService.providers());
     }
 
     @GetMapping("/me")

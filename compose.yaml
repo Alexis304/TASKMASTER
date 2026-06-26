@@ -2,16 +2,18 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: taskmaster-postgres
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: taskmaster
-      POSTGRES_USER: taskmaster
-      POSTGRES_PASSWORD: taskmaster123
+      POSTGRES_DB: ${POSTGRES_DB:-taskmaster}
+      POSTGRES_USER: ${POSTGRES_USER:-taskmaster}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taskmaster123}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U taskmaster -d taskmaster"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taskmaster} -d ${POSTGRES_DB:-taskmaster}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,18 +23,22 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: taskmaster-app
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: postgres
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/taskmaster
-      SPRING_DATASOURCE_USERNAME: taskmaster
-      SPRING_DATASOURCE_PASSWORD: taskmaster123
-      TASKMASTER_DEMO_ADMIN_EMAIL: admin@taskmaster.local
-      TASKMASTER_DEMO_ADMIN_PASSWORD: Admin123*
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-postgres}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-taskmaster}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-taskmaster}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-taskmaster123}
+      TASKMASTER_DEMO_ADMIN_EMAIL: ${TASKMASTER_DEMO_ADMIN_EMAIL:-admin@taskmaster.local}
+      TASKMASTER_DEMO_ADMIN_PASSWORD: ${TASKMASTER_DEMO_ADMIN_PASSWORD:-Admin123*}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     ports:
-      - "8080:8080"
+      - "${APP_PORT:-8080}:8080"
     restart: unless-stopped
 
 volumes:

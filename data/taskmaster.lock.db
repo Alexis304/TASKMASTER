@@ -1,6 +1,6 @@
 #FileLock
-#Thu Jun 25 20:46:19 PET 2026
-server=172.19.16.1\:62022
-hostName=LAPTOP-OIVO6TKN.mshome.net
+#Thu Jun 25 23:31:17 PET 2026
+server=192.168.18.30\:50872
+hostName=host.docker.internal
 method=file
-id=19f019b3f769400483834acc5bcab819ae9e8f84ee9
+id=19f023247db9745ff99d17db065a16bb57b04bff96e
