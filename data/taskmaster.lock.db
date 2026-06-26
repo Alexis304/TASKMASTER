@@ -1,6 +1,0 @@
-#FileLock
-#Thu Jun 25 23:31:17 PET 2026
-server=192.168.18.30\:50872
-hostName=host.docker.internal
-method=file
-id=19f023247db9745ff99d17db065a16bb57b04bff96e
