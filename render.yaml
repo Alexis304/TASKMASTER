@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: taskmaster-api-web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: postgres
+      - key: SERVER_PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: taskmaster-db
+          property: connectionString
+      - key: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID
+        sync: false
+      - key: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET
+        sync: false
+
+databases:
+  - name: taskmaster-db
+    plan: free
+    postgresMajorVersion: "16"
+    databaseName: taskmaster
+    ipAllowList: []
