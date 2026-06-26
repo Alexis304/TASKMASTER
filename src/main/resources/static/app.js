@@ -66,8 +66,8 @@ function applyUrlFeedback() {
 async function loadDashboardData() {
     const [tareas, proyectos, usuarios] = await Promise.all([
         fetchJson("/api/tareas"),
-        fetchJson("/api/catalogo/proyectos"),
-        fetchJson("/api/catalogo/usuarios")
+        fetchJson("/api/proyectos"),
+        fetchJson("/api/usuarios")
     ])
 
     state.tareas = tareas
@@ -159,8 +159,8 @@ function renderRegisterForm() {
     return `
         <form id="register-form" class="auth-form">
             <label class="field">
-                <span class="field-label">Nombre completo</span>
-                <input type="text" name="nombres" placeholder="Tu nombre completo" autocomplete="name" required>
+                <span class="field-label">DNI</span>
+                <input type="text" name="dni" placeholder="Ingresa tu DNI de 8 digitos" inputmode="numeric" maxlength="8" required>
             </label>
 
             <label class="field">
@@ -181,6 +181,8 @@ function renderRegisterForm() {
             <button class="primary-button auth-submit" type="submit">
                 ${state.loading ? "Creando cuenta..." : "Crear cuenta"}
             </button>
+
+            <p class="field-caption">El nombre se completa automaticamente despues de validar tu DNI por SOAP.</p>
         </form>
     `
 }
@@ -514,13 +516,13 @@ async function handleLogin(event) {
 async function handleRegister(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    const nombres = String(formData.get("nombres") || "").trim()
+    const dni = String(formData.get("dni") || "").trim()
     const email = String(formData.get("email") || "").trim()
     const password = String(formData.get("password") || "")
     const confirmPassword = String(formData.get("confirmPassword") || "")
 
-    if (nombres.length < 3) {
-        state.message = { type: "error", text: "Ingresa un nombre valido para la cuenta." }
+    if (!/^\d{8}$/.test(dni)) {
+        state.message = { type: "error", text: "Ingresa un DNI valido de 8 digitos." }
         render()
         return
     }
@@ -548,12 +550,12 @@ async function handleRegister(event) {
     try {
         await fetchJson("/api/auth/register", {
             method: "POST",
-            body: JSON.stringify({ nombres, email, password })
+            body: JSON.stringify({ dni, email, password })
         })
 
         state.user = await fetchJson("/api/auth/me")
         await loadDashboardData()
-        state.message = { type: "info", text: "Cuenta creada correctamente." }
+        state.message = { type: "info", text: "Cuenta creada correctamente con validacion de DNI." }
     } catch (error) {
         state.message = { type: "error", text: error.message }
     } finally {

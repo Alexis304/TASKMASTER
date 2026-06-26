@@ -2,6 +2,7 @@ package com.innovatech.taskmaster.controller;
 
 import com.innovatech.taskmaster.dto.TareaCreateRequest;
 import com.innovatech.taskmaster.dto.TareaResponse;
+import com.innovatech.taskmaster.dto.TareaUpdateRequest;
 import com.innovatech.taskmaster.model.EstadoTarea;
 import com.innovatech.taskmaster.service.TareaService;
 import jakarta.validation.Valid;
@@ -33,13 +34,28 @@ public class TareaController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TareaResponse>> listar() {
-        return ResponseEntity.ok(tareaService.listarTareas());
+    public ResponseEntity<List<TareaResponse>> listar(
+        @RequestParam(required = false) EstadoTarea estado,
+        @RequestParam(required = false) Long proyectoId,
+        @RequestParam(required = false) Long usuarioId,
+        @RequestParam(required = false) String q
+    ) {
+        return ResponseEntity.ok(tareaService.listarTareas(estado, proyectoId, usuarioId, q));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TareaResponse> actualizarEstado(@PathVariable Long id, @RequestParam EstadoTarea estado) {
-        return ResponseEntity.ok(tareaService.actualizarEstado(id, estado));
+    public ResponseEntity<TareaResponse> actualizar(
+        @PathVariable Long id,
+        @Valid @RequestBody(required = false) TareaUpdateRequest request,
+        @RequestParam(required = false) EstadoTarea estado
+    ) {
+        if (request != null) {
+            return ResponseEntity.ok(tareaService.actualizarTarea(id, request));
+        }
+        if (estado != null) {
+            return ResponseEntity.ok(tareaService.actualizarEstado(id, estado));
+        }
+        throw new IllegalArgumentException("Debes enviar un cuerpo valido o el parametro estado.");
     }
 
     @DeleteMapping("/{id}")

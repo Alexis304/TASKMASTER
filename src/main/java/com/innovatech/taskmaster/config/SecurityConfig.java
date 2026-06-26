@@ -38,7 +38,8 @@ public class SecurityConfig {
                     "/app.css",
                     "/app.js",
                     "/error",
-                    "/h2-console/**"
+                    "/h2-console/**",
+                    "/ws/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()

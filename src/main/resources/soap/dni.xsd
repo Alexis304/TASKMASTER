@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://innovatech.com/taskmaster/soap/dni"
+           xmlns:tns="http://innovatech.com/taskmaster/soap/dni"
+           elementFormDefault="qualified">
+
+    <xs:element name="GetPersonaByDniRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="dni" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetPersonaByDniResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="dni" type="xs:string"/>
+                <xs:element name="nombres" type="xs:string"/>
+                <xs:element name="apellidoPaterno" type="xs:string"/>
+                <xs:element name="apellidoMaterno" type="xs:string"/>
+                <xs:element name="nombreCompleto" type="xs:string"/>
+                <xs:element name="estado" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

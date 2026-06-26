@@ -17,7 +17,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Service;
@@ -26,19 +25,19 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private final UsuarioRepository usuarioRepository;
+    private final UsuarioService usuarioService;
     private final AuthenticationManager authenticationManager;
-    private final PasswordEncoder passwordEncoder;
     private final String googleClientId;
 
     public AuthService(
         UsuarioRepository usuarioRepository,
+        UsuarioService usuarioService,
         AuthenticationManager authenticationManager,
-        PasswordEncoder passwordEncoder,
         @Value("${spring.security.oauth2.client.registration.google.client-id:}") String googleClientId
     ) {
         this.usuarioRepository = usuarioRepository;
+        this.usuarioService = usuarioService;
         this.authenticationManager = authenticationManager;
-        this.passwordEncoder = passwordEncoder;
         this.googleClientId = googleClientId;
     }
 
@@ -62,18 +61,8 @@ public class AuthService {
     }
 
     public AuthResponse register(RegisterRequest request, HttpServletRequest httpServletRequest) {
-        String normalizedEmail = request.email().trim().toLowerCase();
-        if (usuarioRepository.findByEmail(normalizedEmail).isPresent()) {
-            throw new IllegalArgumentException("Ya existe una cuenta registrada con este correo.");
-        }
-
-        Usuario usuario = new Usuario();
-        usuario.setNombres(request.nombres().trim());
-        usuario.setEmail(normalizedEmail);
-        usuario.setPassword(passwordEncoder.encode(request.password()));
-        usuarioRepository.save(usuario);
-
-        return login(new AuthRequest(normalizedEmail, request.password()), httpServletRequest);
+        Usuario usuario = usuarioService.registrar(request);
+        return login(new AuthRequest(usuario.getEmail(), request.password()), httpServletRequest);
     }
 
     public CurrentUserResponse currentUser(Authentication authentication) {
