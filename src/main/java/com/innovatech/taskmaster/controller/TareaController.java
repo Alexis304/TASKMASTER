@@ -1,8 +1,8 @@
 package com.innovatech.taskmaster.controller;
 
 import com.innovatech.taskmaster.dto.TareaCreateRequest;
+import com.innovatech.taskmaster.dto.TareaResponse;
 import com.innovatech.taskmaster.model.EstadoTarea;
-import com.innovatech.taskmaster.model.Tarea;
 import com.innovatech.taskmaster.service.TareaService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -28,17 +28,17 @@ public class TareaController {
     }
 
     @PostMapping
-    public ResponseEntity<Tarea> crear(@Valid @RequestBody TareaCreateRequest request) {
+    public ResponseEntity<TareaResponse> crear(@Valid @RequestBody TareaCreateRequest request) {
         return ResponseEntity.ok(tareaService.crearTarea(request));
     }
 
     @GetMapping
-    public ResponseEntity<List<Tarea>> listar() {
+    public ResponseEntity<List<TareaResponse>> listar() {
         return ResponseEntity.ok(tareaService.listarTareas());
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Tarea> actualizarEstado(@PathVariable Long id, @RequestParam EstadoTarea estado) {
+    public ResponseEntity<TareaResponse> actualizarEstado(@PathVariable Long id, @RequestParam EstadoTarea estado) {
         return ResponseEntity.ok(tareaService.actualizarEstado(id, estado));
     }
 

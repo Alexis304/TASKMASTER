@@ -1,6 +1,7 @@
 package com.innovatech.taskmaster.service;
 
 import java.time.LocalDate;
+import java.time.DayOfWeek;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -18,7 +19,16 @@ public class HolidayValidationService {
             return false;
         }
 
-        return false;
+        DayOfWeek dayOfWeek = fecha.getDayOfWeek();
+        return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
+    }
+
+    public String generarAdvertencia(LocalDate fecha) {
+        if (!esFeriado(fecha)) {
+            return null;
+        }
+
+        return "La fecha limite cae en fin de semana. En la integracion final se validara tambien contra feriados externos.";
     }
 
     public WebClient getWebClient() {

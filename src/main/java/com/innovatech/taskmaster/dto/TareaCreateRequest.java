@@ -8,7 +8,7 @@ import java.time.LocalDate;
 public record TareaCreateRequest(
     @NotBlank String titulo,
     String descripcion,
-    @FutureOrPresent LocalDate fechaLimite,
+    @NotNull @FutureOrPresent LocalDate fechaLimite,
     @NotNull Long proyectoId,
     @NotNull Long usuarioAsignadoId
 ) {

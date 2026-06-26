@@ -1,6 +1,7 @@
 package com.innovatech.taskmaster.service;
 
 import com.innovatech.taskmaster.dto.TareaCreateRequest;
+import com.innovatech.taskmaster.dto.TareaResponse;
 import com.innovatech.taskmaster.model.EstadoTarea;
 import com.innovatech.taskmaster.model.Proyecto;
 import com.innovatech.taskmaster.model.Tarea;
@@ -9,6 +10,7 @@ import com.innovatech.taskmaster.repository.ProyectoRepository;
 import com.innovatech.taskmaster.repository.TareaRepository;
 import com.innovatech.taskmaster.repository.UsuarioRepository;
 import java.util.List;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -34,7 +36,7 @@ public class TareaService {
         this.notificationService = notificationService;
     }
 
-    public Tarea crearTarea(TareaCreateRequest request) {
+    public TareaResponse crearTarea(TareaCreateRequest request) {
         Proyecto proyecto = proyectoRepository.findById(request.proyectoId())
             .orElseThrow(() -> new IllegalArgumentException("Proyecto no encontrado"));
         Usuario usuario = usuarioRepository.findById(request.usuarioAsignadoId())
@@ -48,26 +50,47 @@ public class TareaService {
         tarea.setUsuarioAsignado(usuario);
 
         Tarea guardada = tareaRepository.save(tarea);
+        String advertencia = holidayValidationService.generarAdvertencia(request.fechaLimite());
 
-        // Punto de extension para advertencias si la fecha cae en feriado.
-        holidayValidationService.esFeriado(request.fechaLimite());
         notificationService.notificarNuevaTarea(guardada);
 
-        return guardada;
+        return toResponse(guardada, advertencia);
     }
 
-    public List<Tarea> listarTareas() {
-        return tareaRepository.findAll();
+    public List<TareaResponse> listarTareas() {
+        return tareaRepository.findAll(Sort.by(Sort.Direction.DESC, "id"))
+            .stream()
+            .map(tarea -> toResponse(tarea, holidayValidationService.generarAdvertencia(tarea.getFechaLimite())))
+            .toList();
     }
 
-    public Tarea actualizarEstado(Long id, EstadoTarea estado) {
+    public TareaResponse actualizarEstado(Long id, EstadoTarea estado) {
         Tarea tarea = tareaRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Tarea no encontrada"));
         tarea.setEstado(estado);
-        return tareaRepository.save(tarea);
+        Tarea actualizada = tareaRepository.save(tarea);
+        return toResponse(actualizada, holidayValidationService.generarAdvertencia(actualizada.getFechaLimite()));
     }
 
     public void eliminar(Long id) {
+        if (!tareaRepository.existsById(id)) {
+            throw new IllegalArgumentException("Tarea no encontrada");
+        }
         tareaRepository.deleteById(id);
+    }
+
+    private TareaResponse toResponse(Tarea tarea, String advertenciaFecha) {
+        return new TareaResponse(
+            tarea.getId(),
+            tarea.getTitulo(),
+            tarea.getDescripcion(),
+            tarea.getFechaLimite(),
+            tarea.getEstado(),
+            tarea.getProyecto().getId(),
+            tarea.getProyecto().getNombre(),
+            tarea.getUsuarioAsignado().getId(),
+            tarea.getUsuarioAsignado().getNombres(),
+            advertenciaFecha
+        );
     }
 }
