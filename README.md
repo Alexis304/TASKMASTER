@@ -21,6 +21,7 @@ TaskMaster API es una aplicacion web funcional para gestionar tareas corporativa
 - API REST para usuarios, proyectos y tareas.
 - Consumo de API REST externa para validar DNI en registros y altas de usuarios.
 - Consumo de SOAP para exportar el tablero a PDF.
+- WebSockets para sincronizar el tablero Kanban y mostrar notificaciones en vivo.
 - Servicio SOAP propio que recibe el resumen del tablero y devuelve el PDF en base64.
 - Datos semilla para probar la app apenas arranque.
 - Advertencia visual cuando la fecha limite cae en fin de semana.
@@ -191,6 +192,11 @@ src/main/java/com/innovatech/taskmaster/
 - `PUT /api/tareas/{id}`
 - `DELETE /api/tareas/{id}`
 - `GET /api/reportes/tablero.pdf`
+
+WebSocket disponible:
+
+- Endpoint: `/realtime/tasks`
+- Uso: sincronizacion en vivo del tablero y notificaciones cuando se crea, mueve, actualiza o elimina una tarea.
 
 Filtros REST para tareas:
 

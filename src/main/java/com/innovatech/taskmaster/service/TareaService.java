@@ -10,6 +10,7 @@ import com.innovatech.taskmaster.model.Usuario;
 import com.innovatech.taskmaster.repository.ProyectoRepository;
 import com.innovatech.taskmaster.repository.TareaRepository;
 import com.innovatech.taskmaster.repository.UsuarioRepository;
+import com.innovatech.taskmaster.websocket.TaskRealtimeService;
 import jakarta.persistence.criteria.JoinType;
 import java.util.List;
 import org.springframework.data.jpa.domain.Specification;
@@ -24,19 +25,22 @@ public class TareaService {
     private final UsuarioRepository usuarioRepository;
     private final HolidayValidationService holidayValidationService;
     private final NotificationService notificationService;
+    private final TaskRealtimeService taskRealtimeService;
 
     public TareaService(
         TareaRepository tareaRepository,
         ProyectoRepository proyectoRepository,
         UsuarioRepository usuarioRepository,
         HolidayValidationService holidayValidationService,
-        NotificationService notificationService
+        NotificationService notificationService,
+        TaskRealtimeService taskRealtimeService
     ) {
         this.tareaRepository = tareaRepository;
         this.proyectoRepository = proyectoRepository;
         this.usuarioRepository = usuarioRepository;
         this.holidayValidationService = holidayValidationService;
         this.notificationService = notificationService;
+        this.taskRealtimeService = taskRealtimeService;
     }
 
     public TareaResponse crearTarea(TareaCreateRequest request) {
@@ -56,7 +60,9 @@ public class TareaService {
 
         notificationService.notificarNuevaTarea(guardada);
 
-        return toResponse(guardada, advertencia);
+        TareaResponse response = toResponse(guardada, advertencia);
+        taskRealtimeService.tareaCreada(response);
+        return response;
     }
 
     public List<TareaResponse> listarTareas(EstadoTarea estado, Long proyectoId, Long usuarioId, String q) {
@@ -71,7 +77,9 @@ public class TareaService {
             .orElseThrow(() -> new IllegalArgumentException("Tarea no encontrada"));
         tarea.setEstado(estado);
         Tarea actualizada = tareaRepository.save(tarea);
-        return toResponse(actualizada, holidayValidationService.generarAdvertencia(actualizada.getFechaLimite()));
+        TareaResponse response = toResponse(actualizada, holidayValidationService.generarAdvertencia(actualizada.getFechaLimite()));
+        taskRealtimeService.tareaMovida(response);
+        return response;
     }
 
     public TareaResponse actualizarTarea(Long id, TareaUpdateRequest request) {
@@ -89,14 +97,17 @@ public class TareaService {
         );
 
         Tarea actualizada = tareaRepository.save(tarea);
-        return toResponse(actualizada, holidayValidationService.generarAdvertencia(actualizada.getFechaLimite()));
+        TareaResponse response = toResponse(actualizada, holidayValidationService.generarAdvertencia(actualizada.getFechaLimite()));
+        taskRealtimeService.tareaActualizada(response);
+        return response;
     }
 
     public void eliminar(Long id) {
-        if (!tareaRepository.existsById(id)) {
-            throw new IllegalArgumentException("Tarea no encontrada");
-        }
-        tareaRepository.deleteById(id);
+        Tarea tarea = tareaRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Tarea no encontrada"));
+        String titulo = tarea.getTitulo();
+        tareaRepository.delete(tarea);
+        taskRealtimeService.tareaEliminada(id, titulo);
     }
 
     private TareaResponse toResponse(Tarea tarea, String advertenciaFecha) {

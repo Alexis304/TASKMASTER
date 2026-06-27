@@ -481,6 +481,26 @@ a {
     align-items: center;
 }
 
+.live-status {
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.live-status-on {
+    background: #dcfff1;
+    color: var(--success);
+}
+
+.live-status-off {
+    background: #fff1e6;
+    color: var(--warning);
+}
+
 .board-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -703,6 +723,36 @@ a {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
+}
+
+.live-notification-stack {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 30;
+    width: min(340px, calc(100vw - 36px));
+    display: grid;
+    gap: 10px;
+}
+
+.live-notification {
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-md);
+    border-left: 4px solid var(--accent);
+    display: grid;
+    gap: 4px;
+}
+
+.live-notification strong {
+    font-size: 0.82rem;
+    color: var(--accent);
+}
+
+.live-notification span {
+    color: var(--text);
+    font-size: 0.92rem;
 }
 
 @media (max-width: 1160px) {

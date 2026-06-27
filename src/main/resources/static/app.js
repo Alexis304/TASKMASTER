@@ -13,6 +13,8 @@ const state = {
     authMode: "login",
     message: null,
     loading: false,
+    realtimeConnected: false,
+    liveNotifications: [],
     searchTerm: "",
     taskFormOpen: false,
     draggingTaskId: null,
@@ -25,6 +27,9 @@ const state = {
 }
 
 const app = document.querySelector("#app")
+let realtimeSocket = null
+let realtimeReconnectTimer = null
+let realtimeManuallyClosed = false
 
 document.addEventListener("DOMContentLoaded", bootstrap)
 
@@ -40,8 +45,10 @@ async function bootstrap() {
     try {
         state.user = await fetchJson("/api/auth/me")
         await loadDashboardData()
+        connectRealtime()
     } catch (error) {
         state.user = null
+        disconnectRealtime()
     }
 
     render()
@@ -246,6 +253,9 @@ function renderWorkspace() {
                     </div>
 
                     <div class="board-actions">
+                        <span class="live-status ${state.realtimeConnected ? "live-status-on" : "live-status-off"}">
+                            ${state.realtimeConnected ? "En vivo" : "Reconectando"}
+                        </span>
                         <button id="refresh-btn" class="ghost-button" type="button">Actualizar</button>
                         <button id="export-board-pdf" class="ghost-button" type="button">Exportar PDF</button>
                         <button id="open-task-form" class="primary-button" type="button">Nueva tarea</button>
@@ -321,7 +331,25 @@ function renderWorkspace() {
                 </section>
 
                 ${state.taskFormOpen ? renderTaskModal() : ""}
+                ${renderLiveNotifications()}
             </main>
+        </div>
+    `
+}
+
+function renderLiveNotifications() {
+    if (!state.liveNotifications.length) {
+        return ""
+    }
+
+    return `
+        <div class="live-notification-stack" aria-live="polite">
+            ${state.liveNotifications.map(notification => `
+                <div class="live-notification">
+                    <strong>Notificacion en vivo</strong>
+                    <span>${escapeHtml(notification.text)}</span>
+                </div>
+            `).join("")}
         </div>
     `
 }
@@ -512,6 +540,7 @@ async function handleLogin(event) {
 
         state.user = await fetchJson("/api/auth/me")
         await loadDashboardData()
+        connectRealtime()
         state.message = { type: "info", text: "Sesion iniciada correctamente." }
     } catch (error) {
         state.message = { type: "error", text: error.message }
@@ -570,6 +599,7 @@ async function handleRegister(event) {
 
         state.user = await fetchJson("/api/auth/me")
         await loadDashboardData()
+        connectRealtime()
         state.message = { type: "info", text: "Cuenta creada correctamente. Bienvenido, " + nombres + "." }
     } catch (error) {
         state.message = { type: "error", text: error.message }
@@ -756,6 +786,7 @@ async function handleLogout() {
     } catch (error) {
         state.message = { type: "error", text: error.message }
     } finally {
+        disconnectRealtime()
         state.user = null
         state.tareas = []
         state.proyectos = []
@@ -764,11 +795,102 @@ async function handleLogout() {
         state.searchTerm = ""
         state.activeNav = { type: "all", value: null }
         state.filters = { assigneeId: "", deadline: "all", sort: "deadline" }
+        state.liveNotifications = []
         state.authMode = "login"
         state.message = { type: "info", text: "Sesion cerrada." }
         setLoading(false)
         render()
     }
+}
+
+function connectRealtime() {
+    if (!state.user || (realtimeSocket && realtimeSocket.readyState <= WebSocket.OPEN)) {
+        return
+    }
+
+    clearTimeout(realtimeReconnectTimer)
+    realtimeManuallyClosed = false
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+    realtimeSocket = new WebSocket(`${protocol}//${window.location.host}/realtime/tasks`)
+
+    realtimeSocket.addEventListener("open", () => {
+        state.realtimeConnected = true
+        render()
+    })
+
+    realtimeSocket.addEventListener("message", event => {
+        handleRealtimeEvent(event.data)
+    })
+
+    realtimeSocket.addEventListener("close", () => {
+        state.realtimeConnected = false
+        realtimeSocket = null
+        if (!realtimeManuallyClosed && state.user) {
+            render()
+            realtimeReconnectTimer = setTimeout(connectRealtime, 4000)
+        }
+    })
+
+    realtimeSocket.addEventListener("error", () => {
+        realtimeSocket.close()
+    })
+}
+
+function disconnectRealtime() {
+    clearTimeout(realtimeReconnectTimer)
+    realtimeManuallyClosed = true
+    state.realtimeConnected = false
+
+    if (realtimeSocket) {
+        realtimeSocket.close()
+        realtimeSocket = null
+    }
+}
+
+function handleRealtimeEvent(rawPayload) {
+    let event
+    try {
+        event = JSON.parse(rawPayload)
+    } catch (error) {
+        return
+    }
+
+    if (event.type === "TASK_DELETED" && event.deletedTaskId) {
+        state.tareas = state.tareas.filter(tarea => String(tarea.id) !== String(event.deletedTaskId))
+    } else if (event.tarea) {
+        upsertTask(event.tarea)
+    } else {
+        refreshTasks(false, false)
+    }
+
+    addLiveNotification(event.message || "El tablero fue actualizado.")
+    render()
+}
+
+function upsertTask(updatedTask) {
+    const index = state.tareas.findIndex(tarea => tarea.id === updatedTask.id)
+
+    if (index >= 0) {
+        state.tareas.splice(index, 1, updatedTask)
+        return
+    }
+
+    state.tareas.unshift(updatedTask)
+}
+
+function addLiveNotification(text) {
+    const id = Date.now() + Math.random()
+    state.liveNotifications = [
+        { id, text },
+        ...state.liveNotifications
+    ].slice(0, 4)
+
+    setTimeout(() => {
+        state.liveNotifications = state.liveNotifications.filter(notification => notification.id !== id)
+        if (state.user) {
+            render()
+        }
+    }, 5500)
 }
 
 function buildProjectSummaries() {
