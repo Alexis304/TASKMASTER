@@ -26,6 +26,7 @@ const state = {
     liveNotifications: [],
     sidebarOpen: false,
     activeModule: "myTasks",
+    selectedTaskProjectId: localStorage.getItem("taskmaster.selectedTaskProjectId") || "",
     selectedTeamProjectId: "",
     calendarMonth: new Date().toISOString().slice(0, 7),
     searchTerm: "",
@@ -95,6 +96,14 @@ async function loadDashboardData() {
     state.proyectos = proyectos
     state.usuarios = usuarios
     state.equipoMiembros = equipoMiembros
+
+    if (
+        state.selectedTaskProjectId &&
+        !proyectos.some(proyecto => String(proyecto.id) === String(state.selectedTaskProjectId))
+    ) {
+        state.selectedTaskProjectId = ""
+        localStorage.removeItem("taskmaster.selectedTaskProjectId")
+    }
 
     if (!state.selectedTeamProjectId && proyectos.length) {
         state.selectedTeamProjectId = String(proyectos[0].id)
@@ -290,10 +299,14 @@ function renderModuleContent() {
 }
 
 function renderTasksModule() {
+    const selectedProject = getSelectedTaskProject()
     const filteredTasks = getFilteredTasks()
     const columns = buildKanbanColumns(filteredTasks)
     const heading = getWorkspaceHeading(filteredTasks)
     const meta = buildBoardMeta(filteredTasks)
+    const projectMembers = state.selectedTaskProjectId
+        ? getAssignableUsers(state.selectedTaskProjectId)
+        : []
 
     return `
                 <header class="board-header">
@@ -305,10 +318,47 @@ function renderTasksModule() {
 
                     <div class="board-actions">
                         <button id="refresh-btn" class="ghost-button" type="button">Actualizar</button>
-                        <button id="export-board-pdf" class="ghost-button" type="button">Exportar PDF</button>
-                        <button id="open-task-form" class="primary-button" type="button">Nueva tarea</button>
+                        <button id="export-board-pdf" class="ghost-button" type="button" ${!selectedProject ? "disabled" : ""}>Exportar PDF</button>
+                        <button id="open-task-form" class="primary-button" type="button" ${!selectedProject ? "disabled" : ""}>Nueva tarea</button>
                     </div>
                 </header>
+
+                <section class="project-context-card">
+                    <label class="project-context-select">
+                        <span>Proyecto de trabajo</span>
+                        <select id="task-project-context-select">
+                            <option value="">Selecciona un proyecto para abrir el tablero</option>
+                            ${state.proyectos.map(proyecto => `
+                                <option value="${proyecto.id}" ${String(state.selectedTaskProjectId) === String(proyecto.id) ? "selected" : ""}>
+                                    ${escapeHtml(proyecto.nombre)}
+                                </option>
+                            `).join("")}
+                        </select>
+                    </label>
+
+                    <div class="project-context-summary">
+                        <strong>${selectedProject ? escapeHtml(selectedProject.nombre) : "Sin proyecto activo"}</strong>
+                        <span>${selectedProject
+                            ? `${projectMembers.length} integrantes disponibles para trabajar en este tablero.`
+                            : "Elige un proyecto para activar el Kanban colaborativo y el tiempo real."}</span>
+                    </div>
+                </section>
+
+                ${!state.proyectos.length ? `
+                    ${renderMessage()}
+                    <div class="empty-state empty-state-large">
+                        Primero crea un proyecto desde el modulo Proyectos para poder trabajar en un tablero Kanban.
+                    </div>
+                ` : ""}
+
+                ${state.proyectos.length && !selectedProject ? `
+                    ${renderMessage()}
+                    <div class="empty-state empty-state-large">
+                        Selecciona el proyecto donde vas a trabajar. Los movimientos en vivo se sincronizaran solo con usuarios dentro del mismo proyecto.
+                    </div>
+                ` : ""}
+
+                ${selectedProject ? `
 
                 <section class="board-toolbar">
                     <label class="search-box">
@@ -320,7 +370,7 @@ function renderTasksModule() {
                         <span>Responsable</span>
                         <select id="assignee-filter">
                             <option value="">Todos</option>
-                            ${state.usuarios.map(usuario => `
+                            ${projectMembers.map(usuario => `
                                 <option value="${usuario.id}" ${String(state.filters.assigneeId) === String(usuario.id) ? "selected" : ""}>
                                     ${escapeHtml(usuario.nombres)}
                                 </option>
@@ -379,6 +429,7 @@ function renderTasksModule() {
                 </section>
 
                 ${state.taskFormOpen ? renderTaskModal() : ""}
+                ` : ""}
     `
 }
 
@@ -686,7 +737,8 @@ function renderTaskCard(tarea) {
 }
 
 function renderTaskModal() {
-    const initialProjectId = state.proyectos[0]?.id || ""
+    const selectedProject = getSelectedTaskProject()
+    const initialProjectId = selectedProject?.id || ""
     const initialUsers = getAssignableUsers(initialProjectId)
 
     return `
@@ -719,13 +771,8 @@ function renderTaskModal() {
 
                         <label class="field">
                             <span class="field-label">Proyecto</span>
-                            <select id="task-project-select" name="proyectoId" required>
-                                ${state.proyectos.map(proyecto => `
-                                    <option value="${proyecto.id}" ${String(initialProjectId) === String(proyecto.id) ? "selected" : ""}>
-                                        ${escapeHtml(proyecto.nombre)}
-                                    </option>
-                                `).join("")}
-                            </select>
+                            <input type="hidden" name="proyectoId" value="${escapeHtml(initialProjectId)}">
+                            <input type="text" value="${escapeHtml(selectedProject?.nombre || "Selecciona un proyecto")}" readonly>
                         </label>
                     </div>
 
@@ -785,6 +832,7 @@ function bindEvents() {
     document.querySelector("#clear-filters")?.addEventListener("click", resetFilters)
     document.querySelector("#refresh-btn")?.addEventListener("click", () => refreshTasks(true, true))
     document.querySelector("#export-board-pdf")?.addEventListener("click", handleExportBoardPdf)
+    document.querySelector("#task-project-context-select")?.addEventListener("change", handleTaskProjectContextChange)
     document.querySelector("#logout-btn")?.addEventListener("click", handleLogout)
     document.querySelector("#open-menu")?.addEventListener("click", openSidebar)
     document.querySelector("#close-menu")?.addEventListener("click", closeSidebar)
@@ -793,7 +841,6 @@ function bindEvents() {
     document.querySelector("#close-task-form")?.addEventListener("click", closeTaskForm)
     document.querySelector("#cancel-task-form")?.addEventListener("click", closeTaskForm)
     document.querySelector("#task-form")?.addEventListener("submit", handleTaskCreate)
-    document.querySelector("#task-project-select")?.addEventListener("change", handleTaskProjectChange)
     document.querySelector("#project-form")?.addEventListener("submit", handleProjectCreate)
     document.querySelector("#profile-form")?.addEventListener("submit", handleProfileUpdate)
     document.querySelector("#team-project-select")?.addEventListener("change", handleTeamProjectChange)
@@ -982,6 +1029,25 @@ function handleModuleChange(event) {
     state.sidebarOpen = false
     state.taskFormOpen = false
     state.message = null
+    render()
+}
+
+function handleTaskProjectContextChange(event) {
+    const nextProjectId = event.target.value
+    state.selectedTaskProjectId = nextProjectId
+    state.searchTerm = ""
+    state.filters = { assigneeId: "", deadline: "all", sort: "deadline" }
+    state.taskFormOpen = false
+    state.message = null
+
+    if (nextProjectId) {
+        localStorage.setItem("taskmaster.selectedTaskProjectId", nextProjectId)
+        reconnectRealtime()
+    } else {
+        localStorage.removeItem("taskmaster.selectedTaskProjectId")
+        disconnectRealtime()
+    }
+
     render()
 }
 
@@ -1268,12 +1334,15 @@ async function refreshTasks(renderAfter = true, notify = false) {
 function buildReportUrl() {
     const params = new URLSearchParams()
     const term = state.searchTerm.trim()
+    const selectedProject = getSelectedTaskProject()
 
     if (term) {
         params.set("q", term)
     }
 
-    params.set("usuarioId", state.user.id)
+    if (selectedProject) {
+        params.set("proyectoId", selectedProject.id)
+    }
 
     if (state.filters.assigneeId) {
         params.set("usuarioId", state.filters.assigneeId)
@@ -1298,6 +1367,8 @@ async function handleLogout() {
         state.usuarios = []
         state.taskFormOpen = false
         state.searchTerm = ""
+        state.selectedTaskProjectId = ""
+        localStorage.removeItem("taskmaster.selectedTaskProjectId")
         state.activeModule = "myTasks"
         state.sidebarOpen = false
         state.filters = { assigneeId: "", deadline: "all", sort: "deadline" }
@@ -1310,14 +1381,14 @@ async function handleLogout() {
 }
 
 function connectRealtime() {
-    if (!state.user || (realtimeSocket && realtimeSocket.readyState <= WebSocket.OPEN)) {
+    if (!state.user || !state.selectedTaskProjectId || (realtimeSocket && realtimeSocket.readyState <= WebSocket.OPEN)) {
         return
     }
 
     clearTimeout(realtimeReconnectTimer)
     realtimeManuallyClosed = false
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-    realtimeSocket = new WebSocket(`${protocol}//${window.location.host}/realtime/tasks`)
+    realtimeSocket = new WebSocket(`${protocol}//${window.location.host}/realtime/tasks?proyectoId=${encodeURIComponent(state.selectedTaskProjectId)}`)
 
     realtimeSocket.addEventListener("open", () => {
         state.realtimeConnected = true
@@ -1328,7 +1399,11 @@ function connectRealtime() {
         handleRealtimeEvent(event.data)
     })
 
-    realtimeSocket.addEventListener("close", () => {
+    realtimeSocket.addEventListener("close", event => {
+        if (event.currentTarget !== realtimeSocket) {
+            return
+        }
+
         state.realtimeConnected = false
         realtimeSocket = null
         if (!realtimeManuallyClosed && state.user) {
@@ -1337,9 +1412,14 @@ function connectRealtime() {
         }
     })
 
-    realtimeSocket.addEventListener("error", () => {
-        realtimeSocket.close()
+    realtimeSocket.addEventListener("error", event => {
+        event.currentTarget.close()
     })
+}
+
+function reconnectRealtime() {
+    disconnectRealtime()
+    connectRealtime()
 }
 
 function disconnectRealtime() {
@@ -1361,6 +1441,10 @@ function handleRealtimeEvent(rawPayload) {
         return
     }
 
+    if (!isRealtimeEventForSelectedProject(event)) {
+        return
+    }
+
     if (event.type === "TASK_DELETED" && event.deletedTaskId) {
         state.tareas = state.tareas.filter(tarea => String(tarea.id) !== String(event.deletedTaskId))
     } else if (event.tarea) {
@@ -1371,6 +1455,11 @@ function handleRealtimeEvent(rawPayload) {
 
     addLiveNotification(event.message || "El tablero fue actualizado.")
     render()
+}
+
+function isRealtimeEventForSelectedProject(event) {
+    const projectId = event.tarea?.proyectoId || event.proyectoId
+    return projectId && String(projectId) === String(state.selectedTaskProjectId)
 }
 
 function upsertTask(updatedTask) {
@@ -1412,7 +1501,13 @@ function resolveActiveModule() {
 
 function getModuleCount(moduleKey) {
     if (moduleKey === "myTasks") {
-        return state.tareas.filter(tarea => tarea.usuarioAsignadoId === state.user.id).length
+        if (!state.selectedTaskProjectId) {
+            return state.tareas.filter(tarea => tarea.usuarioAsignadoId === state.user.id).length
+        }
+
+        return state.tareas.filter(tarea =>
+            String(tarea.proyectoId) === String(state.selectedTaskProjectId)
+        ).length
     }
 
     if (moduleKey === "team") {
@@ -1432,13 +1527,27 @@ function getModuleCount(moduleKey) {
 
 function getAssignableUsers(projectId) {
     const miembros = state.equipoMiembros.filter(miembro => String(miembro.proyectoId) === String(projectId))
+    const usersById = new Map()
 
-    if (!miembros.length) {
-        return state.usuarios
+    if (state.user) {
+        usersById.set(String(state.user.id), {
+            id: state.user.id,
+            nombres: state.user.nombres,
+            email: state.user.email,
+            fotoUrl: state.user.fotoUrl
+        })
     }
 
-    const memberIds = new Set(miembros.map(miembro => String(miembro.usuarioId)))
-    return state.usuarios.filter(usuario => memberIds.has(String(usuario.id)))
+    if (miembros.length) {
+        const memberIds = new Set(miembros.map(miembro => String(miembro.usuarioId)))
+        state.usuarios
+            .filter(usuario => memberIds.has(String(usuario.id)))
+            .forEach(usuario => usersById.set(String(usuario.id), usuario))
+        return Array.from(usersById.values()).sort((a, b) => a.nombres.localeCompare(b.nombres))
+    }
+
+    state.usuarios.forEach(usuario => usersById.set(String(usuario.id), usuario))
+    return Array.from(usersById.values()).sort((a, b) => a.nombres.localeCompare(b.nombres))
 }
 
 function buildBoardMeta(tasks) {
@@ -1450,15 +1559,29 @@ function buildBoardMeta(tasks) {
 }
 
 function getWorkspaceHeading(tasks) {
+    const selectedProject = getSelectedTaskProject()
+
+    if (!selectedProject) {
+        return {
+            kicker: "Tablero Kanban",
+            title: "Mis Tareas",
+            subtitle: "Selecciona primero el proyecto donde vas a trabajar."
+        }
+    }
+
     return {
-        kicker: "Vista personal",
-        title: "Mis Tareas",
-        subtitle: `${tasks.length} tarjetas bajo tu responsabilidad.`
+        kicker: "Tablero colaborativo",
+        title: selectedProject.nombre,
+        subtitle: `${tasks.length} tarjetas visibles para este proyecto.`
     }
 }
 
 function getFilteredTasks() {
-    let tasks = state.tareas.filter(tarea => tarea.usuarioAsignadoId === state.user.id)
+    if (!state.selectedTaskProjectId) {
+        return []
+    }
+
+    let tasks = state.tareas.filter(tarea => String(tarea.proyectoId) === String(state.selectedTaskProjectId))
 
     if (state.filters.assigneeId) {
         tasks = tasks.filter(tarea => String(tarea.usuarioAsignadoId) === String(state.filters.assigneeId))
@@ -1478,6 +1601,10 @@ function getFilteredTasks() {
     }
 
     return sortTasks(tasks, state.filters.sort)
+}
+
+function getSelectedTaskProject() {
+    return state.proyectos.find(proyecto => String(proyecto.id) === String(state.selectedTaskProjectId))
 }
 
 function getUrgentTasks(tasks) {

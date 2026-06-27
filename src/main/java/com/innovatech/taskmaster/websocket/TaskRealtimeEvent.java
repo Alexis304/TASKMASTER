@@ -6,6 +6,7 @@ public record TaskRealtimeEvent(
     String type,
     String message,
     TareaResponse tarea,
-    Long deletedTaskId
+    Long deletedTaskId,
+    Long proyectoId
 ) {
 }

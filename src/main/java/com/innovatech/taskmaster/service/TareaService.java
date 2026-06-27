@@ -109,8 +109,9 @@ public class TareaService {
             .orElseThrow(() -> new IllegalArgumentException("Tarea no encontrada"));
         validarTareaEditable(tarea);
         String titulo = tarea.getTitulo();
+        Long proyectoId = tarea.getProyecto().getId();
         tareaRepository.delete(tarea);
-        taskRealtimeService.tareaEliminada(id, titulo);
+        taskRealtimeService.tareaEliminada(id, proyectoId, titulo);
     }
 
     private TareaResponse toResponse(Tarea tarea, String advertenciaFecha) {

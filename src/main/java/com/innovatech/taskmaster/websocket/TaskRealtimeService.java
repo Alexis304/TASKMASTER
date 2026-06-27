@@ -17,7 +17,8 @@ public class TaskRealtimeService {
             "TASK_CREATED",
             "Nueva tarea creada: " + tarea.titulo(),
             tarea,
-            null
+            null,
+            tarea.proyectoId()
         ));
     }
 
@@ -26,7 +27,8 @@ public class TaskRealtimeService {
             "TASK_UPDATED",
             "Tarea actualizada: " + tarea.titulo(),
             tarea,
-            null
+            null,
+            tarea.proyectoId()
         ));
     }
 
@@ -35,16 +37,18 @@ public class TaskRealtimeService {
             "TASK_MOVED",
             "Tarea movida a " + tarea.estado(),
             tarea,
-            null
+            null,
+            tarea.proyectoId()
         ));
     }
 
-    public void tareaEliminada(Long tareaId, String titulo) {
+    public void tareaEliminada(Long tareaId, Long proyectoId, String titulo) {
         webSocketHandler.broadcast(new TaskRealtimeEvent(
             "TASK_DELETED",
             "Tarea eliminada: " + titulo,
             null,
-            tareaId
+            tareaId,
+            proyectoId
         ));
     }
 }
