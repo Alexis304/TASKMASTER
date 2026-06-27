@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.innovatech.taskmaster.dto.AuthRequest;
 import com.innovatech.taskmaster.dto.CurrentUserResponse;
+import com.innovatech.taskmaster.dto.DniLookupResponse;
 import com.innovatech.taskmaster.dto.EquipoMiembroResponse;
 import com.innovatech.taskmaster.dto.ProyectoResponse;
 import com.innovatech.taskmaster.dto.RegisterRequest;
@@ -178,6 +179,12 @@ class TaskmasterApiIntegrationTest {
             "Torres",
             "Salazar"
         ));
+
+        HttpResponse<String> dniLookupResponse = client.get("/api/dni/74567890");
+        assertEquals(200, dniLookupResponse.statusCode());
+        DniLookupResponse dniLookup = objectMapper.readValue(dniLookupResponse.body(), DniLookupResponse.class);
+        assertEquals("74567890", dniLookup.dni());
+        assertEquals("Jorge Quispe Mendoza", dniLookup.nombreCompleto());
 
         HttpResponse<String> projectResponse = client.post(
             "/api/proyectos",

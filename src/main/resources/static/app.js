@@ -42,6 +42,7 @@ const app = document.querySelector("#app")
 let realtimeSocket = null
 let realtimeReconnectTimer = null
 let realtimeManuallyClosed = false
+let dniLookupTimer = null
 
 document.addEventListener("DOMContentLoaded", bootstrap)
 
@@ -186,11 +187,12 @@ function renderRegisterForm() {
             <label class="field">
                 <span class="field-label">DNI</span>
                 <input type="text" name="dni" placeholder="Ingresa tu DNI de 8 digitos" inputmode="numeric" maxlength="8" autocomplete="off" required>
+                <span id="dni-lookup-status" class="field-caption">Al completar 8 digitos buscaremos tu nombre automaticamente.</span>
             </label>
 
             <label class="field">
                 <span class="field-label">Nombre completo</span>
-                <input type="text" name="nombres" placeholder="Ingresa tu nombre completo" autocomplete="name" minlength="3" maxlength="120" required>
+                <input id="register-nombres" type="text" name="nombres" placeholder="Se completara con la API de DNI" autocomplete="name" minlength="3" maxlength="120" required>
             </label>
 
             <label class="field">
@@ -212,7 +214,7 @@ function renderRegisterForm() {
                 ${state.loading ? "Creando cuenta..." : "Crear cuenta"}
             </button>
 
-            <p class="field-caption">Si la API REST encuentra tu DNI, usaremos ese nombre. Si no, guardaremos el nombre completo ingresado.</p>
+            <p class="field-caption">El nombre guardado sera el devuelto por la API REST de DNI cuando el documento exista.</p>
         </form>
     `
 }
@@ -749,6 +751,7 @@ function bindEvents() {
         button.addEventListener("click", event => {
             state.authMode = event.currentTarget.dataset.authSwitch
             state.message = null
+            clearTimeout(dniLookupTimer)
             render()
         })
     })
@@ -908,7 +911,7 @@ async function handleRegister(event) {
         state.user = await fetchJson("/api/auth/me")
         await loadDashboardData()
         connectRealtime()
-        state.message = { type: "info", text: "Cuenta creada correctamente. Bienvenido, " + nombres + "." }
+        state.message = { type: "info", text: "Cuenta creada correctamente. Bienvenido, " + state.user.nombres + "." }
     } catch (error) {
         state.message = { type: "error", text: error.message }
     } finally {
@@ -919,6 +922,42 @@ async function handleRegister(event) {
 
 function handleDniInput(event) {
     event.target.value = normalizeDni(event.target.value).slice(0, 8)
+    const dni = event.target.value
+    const status = document.querySelector("#dni-lookup-status")
+    const nombresInput = document.querySelector("#register-nombres")
+
+    clearTimeout(dniLookupTimer)
+
+    if (!status || !nombresInput) {
+        return
+    }
+
+    status.className = "field-caption"
+
+    if (dni.length < 8) {
+        status.textContent = "Al completar 8 digitos buscaremos tu nombre automaticamente."
+        nombresInput.readOnly = false
+        return
+    }
+
+    status.textContent = "Consultando DNI en la API..."
+    nombresInput.readOnly = true
+
+    dniLookupTimer = setTimeout(async () => {
+        try {
+            const persona = await fetchJson(`/api/dni/${encodeURIComponent(dni)}`)
+            nombresInput.value = persona.nombreCompleto || ""
+            nombresInput.readOnly = Boolean(persona.nombreCompleto)
+            status.className = "field-caption field-caption-success"
+            status.textContent = persona.nombreCompleto
+                ? "Nombre encontrado y completado automaticamente."
+                : "La API respondio sin nombre. Ingresa el nombre manualmente."
+        } catch (error) {
+            nombresInput.readOnly = false
+            status.className = "field-caption field-caption-error"
+            status.textContent = error.message || "No se pudo consultar el DNI. Ingresa el nombre manualmente."
+        }
+    }, 350)
 }
 
 function normalizeDni(value) {

@@ -267,6 +267,16 @@ select:disabled {
     font-size: 0.88rem;
 }
 
+.field-caption-success {
+    color: var(--success);
+    font-weight: 700;
+}
+
+.field-caption-error {
+    color: var(--danger);
+    font-weight: 700;
+}
+
 .field input,
 .field select,
 .field textarea,
@@ -292,6 +302,11 @@ select:disabled {
     min-height: 108px;
     padding: 12px;
     resize: vertical;
+}
+
+.field input[readonly] {
+    background: var(--surface-soft);
+    color: var(--muted);
 }
 
 .field input:focus,

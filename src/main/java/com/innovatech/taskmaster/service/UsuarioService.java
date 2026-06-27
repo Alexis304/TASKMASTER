@@ -1,6 +1,7 @@
 package com.innovatech.taskmaster.service;
 
 import com.innovatech.taskmaster.dto.RegisterRequest;
+import com.innovatech.taskmaster.dto.DniLookupResponse;
 import com.innovatech.taskmaster.dto.UsuarioCreateRequest;
 import com.innovatech.taskmaster.dto.UsuarioResponse;
 import com.innovatech.taskmaster.dto.UsuarioUpdateRequest;
@@ -85,6 +86,18 @@ public class UsuarioService {
         return crearUsuario(request.dni(), request.nombres(), request.email(), request.password());
     }
 
+    public DniLookupResponse consultarDni(String dni) {
+        String normalizedDni = normalizeDni(dni);
+        if (normalizedDni.length() != 8) {
+            throw new IllegalArgumentException("El DNI debe contener exactamente 8 digitos.");
+        }
+
+        DniPersona persona = dniRestClient.obtenerPersonaPorDni(normalizedDni);
+        validarPersonaActiva(persona);
+        String nombreCompleto = resolveNombreCompleto(persona, "");
+        return new DniLookupResponse(normalizedDni, nombreCompleto);
+    }
+
     public Usuario crearUsuario(String dni, String nombres, String email, String password) {
         String normalizedDni = normalizeDni(dni);
         String normalizedNombre = normalizeNombre(nombres);
@@ -143,6 +156,9 @@ public class UsuarioService {
     }
 
     private String normalizeNombre(String nombres) {
+        if (nombres == null || nombres.isBlank()) {
+            throw new IllegalArgumentException("Ingresa el nombre completo.");
+        }
         return nombres.trim().replaceAll("\\s+", " ");
     }
 
