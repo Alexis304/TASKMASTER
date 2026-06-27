@@ -5,7 +5,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Column;
-import jakarta.persistence.Lob;
 
 @Entity
 public class Usuario {
@@ -24,7 +23,6 @@ public class Usuario {
 
     private String nombres;
 
-    @Lob
     @Column(columnDefinition = "TEXT")
     private String fotoUrl;
 
