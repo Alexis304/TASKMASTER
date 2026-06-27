@@ -695,6 +695,19 @@ select:disabled {
     line-height: 1.45;
 }
 
+.task-description {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.45;
+    white-space: pre-line;
+}
+
+.task-description-empty {
+    color: var(--muted);
+    font-style: italic;
+}
+
 .delete-link {
     border: 0;
     padding: 0;

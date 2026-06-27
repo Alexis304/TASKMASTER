@@ -667,6 +667,10 @@ function renderTaskCard(tarea) {
                     : `<button class="delete-link" type="button" data-delete="${tarea.id}" aria-label="Eliminar tarea">x</button>`}
             </div>
 
+            <p class="task-description ${tarea.descripcion ? "" : "task-description-empty"}">
+                ${escapeHtml(tarea.descripcion || "Sin descripcion")}
+            </p>
+
             <div class="task-card-footer">
                 <div class="assignee-pill">
                     <span class="avatar-badge">${buildInitials(tarea.usuarioAsignadoNombre)}</span>
