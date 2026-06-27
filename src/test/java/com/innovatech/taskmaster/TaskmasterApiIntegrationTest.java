@@ -53,6 +53,8 @@ import static org.mockito.Mockito.when;
     "spring.datasource.driver-class-name=org.h2.Driver",
     "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+    "taskmaster.seed.admin.enabled=true",
+    "taskmaster.cleanup.demo-data=false",
     "taskmaster.soap.dni.endpoint-uri="
 })
 class TaskmasterApiIntegrationTest {
