@@ -23,6 +23,9 @@ public class Usuario {
 
     private String nombres;
 
+    @Column(length = 500)
+    private String fotoUrl;
+
     public Long getId() {
         return id;
     }
@@ -61,5 +64,13 @@ public class Usuario {
 
     public void setNombres(String nombres) {
         this.nombres = nombres;
+    }
+
+    public String getFotoUrl() {
+        return fotoUrl;
+    }
+
+    public void setFotoUrl(String fotoUrl) {
+        this.fotoUrl = fotoUrl;
     }
 }

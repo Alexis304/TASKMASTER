@@ -226,6 +226,28 @@ class TaskmasterApiIntegrationTest {
         TareaResponse updatedTask = objectMapper.readValue(updatedResponse.body(), TareaResponse.class);
         assertEquals(EstadoTarea.EN_PROGRESO, updatedTask.estado());
 
+        HttpResponse<String> lockedTaskResponse = client.post(
+            "/api/tareas",
+            new TareaCreateRequest(
+                "Cerrar tarea inmutable",
+                "Debe bloquearse al llegar a Hecho",
+                LocalDate.now().plusDays(6),
+                project.id(),
+                user.id()
+            )
+        );
+        assertEquals(200, lockedTaskResponse.statusCode());
+        TareaResponse lockedTask = objectMapper.readValue(lockedTaskResponse.body(), TareaResponse.class);
+
+        HttpResponse<String> completedResponse = client.putEmpty("/api/tareas/" + lockedTask.id() + "?estado=COMPLETADA");
+        assertEquals(200, completedResponse.statusCode());
+
+        HttpResponse<String> rejectedMoveResponse = client.putEmpty("/api/tareas/" + lockedTask.id() + "?estado=PENDIENTE");
+        assertEquals(400, rejectedMoveResponse.statusCode());
+
+        HttpResponse<String> rejectedDeleteResponse = client.delete("/api/tareas/" + lockedTask.id());
+        assertEquals(400, rejectedDeleteResponse.statusCode());
+
         HttpResponse<String> deleteResponse = client.delete("/api/tareas/" + task.id());
         assertEquals(204, deleteResponse.statusCode());
     }
@@ -295,6 +317,14 @@ class TaskmasterApiIntegrationTest {
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(objectMapper.writeValueAsBytes(payload)))
+                .build();
+            return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        }
+
+        private HttpResponse<String> putEmpty(String path) throws Exception {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url(path)))
+                .header("Accept", "application/json")
+                .PUT(HttpRequest.BodyPublishers.noBody())
                 .build();
             return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         }

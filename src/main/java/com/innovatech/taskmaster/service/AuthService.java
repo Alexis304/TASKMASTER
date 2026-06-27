@@ -4,6 +4,7 @@ import com.innovatech.taskmaster.dto.AuthRequest;
 import com.innovatech.taskmaster.dto.AuthProviderResponse;
 import com.innovatech.taskmaster.dto.AuthResponse;
 import com.innovatech.taskmaster.dto.CurrentUserResponse;
+import com.innovatech.taskmaster.dto.ProfileUpdateRequest;
 import com.innovatech.taskmaster.dto.RegisterRequest;
 import com.innovatech.taskmaster.model.Usuario;
 import com.innovatech.taskmaster.repository.UsuarioRepository;
@@ -77,7 +78,18 @@ public class AuthService {
         Usuario usuario = usuarioRepository.findByEmail(resolveAuthenticatedEmail(authentication))
             .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
-        return new CurrentUserResponse(usuario.getId(), usuario.getEmail(), usuario.getNombres());
+        return new CurrentUserResponse(usuario.getId(), usuario.getEmail(), usuario.getNombres(), usuario.getFotoUrl());
+    }
+
+    public CurrentUserResponse updateProfile(ProfileUpdateRequest request, Authentication authentication) {
+        Usuario usuario = usuarioRepository.findByEmail(resolveAuthenticatedEmail(authentication))
+            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        usuario.setNombres(normalizeName(request.nombres()));
+        usuario.setFotoUrl(trimToNull(request.fotoUrl()));
+
+        Usuario updated = usuarioRepository.save(usuario);
+        return new CurrentUserResponse(updated.getId(), updated.getEmail(), updated.getNombres(), updated.getFotoUrl());
     }
 
     public AuthProviderResponse providers() {
@@ -108,5 +120,17 @@ public class AuthService {
         }
 
         return authentication.getName().trim().toLowerCase();
+    }
+
+    private String normalizeName(String value) {
+        return value.trim().replaceAll("\\s+", " ");
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

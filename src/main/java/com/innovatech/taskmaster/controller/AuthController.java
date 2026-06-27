@@ -4,6 +4,7 @@ import com.innovatech.taskmaster.dto.AuthRequest;
 import com.innovatech.taskmaster.dto.AuthProviderResponse;
 import com.innovatech.taskmaster.dto.AuthResponse;
 import com.innovatech.taskmaster.dto.CurrentUserResponse;
+import com.innovatech.taskmaster.dto.ProfileUpdateRequest;
 import com.innovatech.taskmaster.dto.RegisterRequest;
 import com.innovatech.taskmaster.service.AuthService;
 import jakarta.validation.Valid;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,6 +52,14 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<CurrentUserResponse> currentUser(Authentication authentication) {
         return ResponseEntity.ok(authService.currentUser(authentication));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<CurrentUserResponse> updateProfile(
+        @Valid @RequestBody ProfileUpdateRequest request,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(authService.updateProfile(request, authentication));
     }
 
     @PostMapping("/logout")

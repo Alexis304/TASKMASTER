@@ -129,7 +129,13 @@ public class UsuarioService {
     }
 
     private UsuarioResponse toResponse(Usuario usuario) {
-        return new UsuarioResponse(usuario.getId(), usuario.getEmail(), usuario.getDni(), usuario.getNombres());
+        return new UsuarioResponse(
+            usuario.getId(),
+            usuario.getEmail(),
+            usuario.getDni(),
+            usuario.getNombres(),
+            usuario.getFotoUrl()
+        );
     }
 
     private String normalizeEmail(String email) {

@@ -4,6 +4,14 @@ const TASK_STATUSES = [
     { key: "COMPLETADA", label: "Hecho" }
 ]
 
+const MODULES = [
+    { key: "myTasks", label: "Mis Tareas" },
+    { key: "team", label: "Equipo de trabajo" },
+    { key: "projects", label: "Proyectos" },
+    { key: "calendar", label: "Calendario" },
+    { key: "profile", label: "Perfil" }
+]
+
 const state = {
     user: null,
     tareas: [],
@@ -15,10 +23,11 @@ const state = {
     loading: false,
     realtimeConnected: false,
     liveNotifications: [],
+    sidebarOpen: false,
+    activeModule: "myTasks",
     searchTerm: "",
     taskFormOpen: false,
     draggingTaskId: null,
-    activeNav: { type: "all", value: null },
     filters: {
         assigneeId: "",
         deadline: "all",
@@ -200,51 +209,83 @@ function renderRegisterForm() {
 }
 
 function renderWorkspace() {
-    const filteredTasks = getFilteredTasks()
-    const columns = buildKanbanColumns(filteredTasks)
-    const heading = getWorkspaceHeading(filteredTasks)
-    const meta = buildBoardMeta(filteredTasks)
-
     return `
         <div class="workspace-shell">
-            <aside class="sidebar">
+            <aside class="sidebar ${state.sidebarOpen ? "sidebar-open" : ""}">
                 <div class="sidebar-brand">
                     <div class="brand-glyph brand-glyph-small"></div>
                     <div>
                         <h2>TaskMaster</h2>
                         <p>Workspace</p>
                     </div>
+                    <button id="close-menu" class="menu-close" type="button" aria-label="Cerrar menu">x</button>
                 </div>
 
                 <div class="sidebar-user">
-                    <strong>${escapeHtml(state.user.nombres)}</strong>
-                    <span>${escapeHtml(state.user.email)}</span>
+                    <div class="profile-mini">
+                        ${renderAvatar(state.user.nombres, state.user.fotoUrl)}
+                        <div>
+                            <strong>${escapeHtml(state.user.nombres)}</strong>
+                            <span>${escapeHtml(state.user.email)}</span>
+                        </div>
+                    </div>
                 </div>
 
                 <nav class="sidebar-nav">
-                    ${renderNavButton("all", null, "Tablero", state.tareas.length)}
-                    ${renderNavButton("my", state.user.id, "Mis tareas", state.tareas.filter(tarea => tarea.usuarioAsignadoId === state.user.id).length)}
-                    ${renderNavButton("urgent", null, "Urgentes", getUrgentTasks(state.tareas).length)}
+                    ${MODULES.map(module => renderModuleButton(module)).join("")}
                 </nav>
-
-                <section class="sidebar-section">
-                    <div class="sidebar-section-title">Proyectos</div>
-                    <div class="sidebar-projects">
-                        ${buildProjectSummaries().map(project => `
-                            <button class="sidebar-project ${isProjectActive(project.id) ? "sidebar-project-active" : ""}" type="button" data-nav-type="project" data-nav-value="${project.id}">
-                                <span>${escapeHtml(project.nombre)}</span>
-                                <span class="count-pill">${project.count}</span>
-                            </button>
-                        `).join("")}
-                    </div>
-                </section>
 
                 <div class="sidebar-footer">
                     <button id="logout-btn" class="ghost-button sidebar-button" type="button">Cerrar sesion</button>
                 </div>
             </aside>
 
+            ${state.sidebarOpen ? `<button id="sidebar-backdrop" class="sidebar-backdrop" type="button" aria-label="Cerrar menu"></button>` : ""}
+
             <main class="board-page">
+                <header class="mobile-topbar">
+                    <button id="open-menu" class="hamburger-button" type="button" aria-label="Abrir menu">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    <strong>${escapeHtml(resolveActiveModule().label)}</strong>
+                </header>
+
+                ${renderModuleContent()}
+                ${renderLiveNotifications()}
+            </main>
+        </div>
+    `
+}
+
+function renderModuleContent() {
+    if (state.activeModule === "team") {
+        return renderTeamModule()
+    }
+
+    if (state.activeModule === "projects") {
+        return renderProjectsModule()
+    }
+
+    if (state.activeModule === "calendar") {
+        return renderCalendarModule()
+    }
+
+    if (state.activeModule === "profile") {
+        return renderProfileModule()
+    }
+
+    return renderTasksModule()
+}
+
+function renderTasksModule() {
+    const filteredTasks = getFilteredTasks()
+    const columns = buildKanbanColumns(filteredTasks)
+    const heading = getWorkspaceHeading(filteredTasks)
+    const meta = buildBoardMeta(filteredTasks)
+
+    return `
                 <header class="board-header">
                     <div>
                         <p class="board-kicker">${escapeHtml(heading.kicker)}</p>
@@ -253,9 +294,6 @@ function renderWorkspace() {
                     </div>
 
                     <div class="board-actions">
-                        <span class="live-status ${state.realtimeConnected ? "live-status-on" : "live-status-off"}">
-                            ${state.realtimeConnected ? "En vivo" : "Reconectando"}
-                        </span>
                         <button id="refresh-btn" class="ghost-button" type="button">Actualizar</button>
                         <button id="export-board-pdf" class="ghost-button" type="button">Exportar PDF</button>
                         <button id="open-task-form" class="primary-button" type="button">Nueva tarea</button>
@@ -331,9 +369,6 @@ function renderWorkspace() {
                 </section>
 
                 ${state.taskFormOpen ? renderTaskModal() : ""}
-                ${renderLiveNotifications()}
-            </main>
-        </div>
     `
 }
 
@@ -354,18 +389,158 @@ function renderLiveNotifications() {
     `
 }
 
-function renderNavButton(type, value, label, count) {
-    const active = state.activeNav.type === type && String(state.activeNav.value) === String(value)
+function renderTeamModule() {
+    return `
+        <section class="module-panel">
+            <div>
+                <p class="board-kicker">Equipo de trabajo</p>
+                <h1>Cuentas vinculables</h1>
+                <p class="board-subtitle">Usuarios registrados en la plataforma para asignar tareas y colaborar en proyectos.</p>
+            </div>
+
+            ${renderMessage()}
+
+            <div class="team-grid">
+                ${state.usuarios.map(usuario => `
+                    <article class="team-card">
+                        ${renderAvatar(usuario.nombres, usuario.fotoUrl)}
+                        <div>
+                            <h3>${escapeHtml(usuario.nombres)}</h3>
+                            <p>${escapeHtml(usuario.email)}</p>
+                            <span>${usuario.id === state.user.id ? "Tu cuenta" : "Disponible para colaboracion"}</span>
+                        </div>
+                    </article>
+                `).join("")}
+            </div>
+        </section>
+    `
+}
+
+function renderProjectsModule() {
+    return `
+        <section class="module-panel">
+            <div>
+                <p class="board-kicker">Proyectos</p>
+                <h1>Configurar proyectos</h1>
+                <p class="board-subtitle">Crea proyectos para trabajar en conjunto con las cuentas vinculadas del equipo.</p>
+            </div>
+
+            ${renderMessage()}
+
+            <form id="project-form" class="project-form">
+                <label class="field">
+                    <span class="field-label">Nombre del proyecto</span>
+                    <input type="text" name="nombre" placeholder="Ej. Plataforma Kanban" maxlength="120" required>
+                </label>
+                <label class="field">
+                    <span class="field-label">Descripcion</span>
+                    <textarea name="descripcion" placeholder="Objetivo, alcance o contexto del proyecto" maxlength="500"></textarea>
+                </label>
+                <button class="primary-button" type="submit">${state.loading ? "Creando..." : "Crear proyecto"}</button>
+            </form>
+
+            <div class="project-list">
+                ${state.proyectos.map(proyecto => `
+                    <article class="project-card">
+                        <div>
+                            <h3>${escapeHtml(proyecto.nombre)}</h3>
+                            <p>${escapeHtml(proyecto.descripcion || "Sin descripcion")}</p>
+                        </div>
+                        <span class="count-pill">${state.tareas.filter(tarea => tarea.proyectoId === proyecto.id).length} tareas</span>
+                    </article>
+                `).join("")}
+            </div>
+        </section>
+    `
+}
+
+function renderCalendarModule() {
+    const tasks = [...state.tareas].sort((a, b) => String(a.fechaLimite || "").localeCompare(String(b.fechaLimite || "")))
 
     return `
-        <button class="sidebar-link ${active ? "sidebar-link-active" : ""}" type="button" data-nav-type="${type}" data-nav-value="${value ?? ""}">
-            <span>${escapeHtml(label)}</span>
+        <section class="module-panel">
+            <div>
+                <p class="board-kicker">Calendario</p>
+                <h1>Trazabilidad de tareas</h1>
+                <p class="board-subtitle">Vista cronologica de tareas programadas, en curso y realizadas.</p>
+            </div>
+
+            ${renderMessage()}
+
+            <div class="calendar-list">
+                ${tasks.map(tarea => `
+                    <article class="calendar-item">
+                        <time>${escapeHtml(formatDate(tarea.fechaLimite))}</time>
+                        <div>
+                            <h3>${escapeHtml(tarea.titulo)}</h3>
+                            <p>${escapeHtml(tarea.proyectoNombre)} · ${escapeHtml(tarea.usuarioAsignadoNombre)}</p>
+                        </div>
+                        <span class="status-chip status-${tarea.estado.toLowerCase()}">${escapeHtml(formatStatus(tarea.estado))}</span>
+                    </article>
+                `).join("")}
+            </div>
+        </section>
+    `
+}
+
+function renderProfileModule() {
+    return `
+        <section class="module-panel">
+            <div>
+                <p class="board-kicker">Perfil</p>
+                <h1>Configuracion de cuenta</h1>
+                <p class="board-subtitle">Actualiza tu nombre y la foto visible para el equipo.</p>
+            </div>
+
+            ${renderMessage()}
+
+            <form id="profile-form" class="profile-form">
+                <div class="profile-preview">
+                    ${renderAvatar(state.user.nombres, state.user.fotoUrl, "profile-avatar-large")}
+                    <div>
+                        <strong>${escapeHtml(state.user.nombres)}</strong>
+                        <span>${escapeHtml(state.user.email)}</span>
+                    </div>
+                </div>
+
+                <label class="field">
+                    <span class="field-label">Nombre completo</span>
+                    <input type="text" name="nombres" value="${escapeHtml(state.user.nombres)}" minlength="3" maxlength="120" required>
+                </label>
+
+                <label class="field">
+                    <span class="field-label">URL de foto</span>
+                    <input type="url" name="fotoUrl" value="${escapeHtml(state.user.fotoUrl || "")}" placeholder="https://...">
+                </label>
+
+                <button class="primary-button" type="submit">${state.loading ? "Guardando..." : "Guardar perfil"}</button>
+            </form>
+        </section>
+    `
+}
+
+function renderAvatar(name, fotoUrl, extraClass = "") {
+    if (fotoUrl) {
+        return `<img class="avatar-image ${extraClass}" src="${escapeHtml(fotoUrl)}" alt="${escapeHtml(name)}">`
+    }
+
+    return `<span class="avatar-badge ${extraClass}">${buildInitials(name)}</span>`
+}
+
+function renderModuleButton(module) {
+    const active = state.activeModule === module.key
+    const count = getModuleCount(module.key)
+
+    return `
+        <button class="sidebar-link ${active ? "sidebar-link-active" : ""}" type="button" data-module="${module.key}">
+            <span>${escapeHtml(module.label)}</span>
             <span class="count-pill">${count}</span>
         </button>
     `
 }
 
 function renderTaskCard(tarea) {
+    const completed = tarea.estado === "COMPLETADA"
     const dueClass = tarea.advertenciaFecha
         ? "task-date-warning"
         : isLateTask(tarea)
@@ -373,10 +548,12 @@ function renderTaskCard(tarea) {
             : ""
 
     return `
-        <article class="task-card" draggable="true" data-task-id="${tarea.id}">
+        <article class="task-card ${completed ? "task-card-locked" : ""}" draggable="${completed ? "false" : "true"}" data-task-id="${tarea.id}">
             <div class="task-card-row">
                 <h3>${escapeHtml(tarea.titulo)}</h3>
-                <button class="delete-link" type="button" data-delete="${tarea.id}" aria-label="Eliminar tarea">x</button>
+                ${completed
+                    ? `<span class="locked-pill">Finalizada</span>`
+                    : `<button class="delete-link" type="button" data-delete="${tarea.id}" aria-label="Eliminar tarea">x</button>`}
             </div>
 
             <div class="task-card-footer">
@@ -388,6 +565,7 @@ function renderTaskCard(tarea) {
             </div>
 
             ${tarea.advertenciaFecha ? `<p class="task-warning">${escapeHtml(tarea.advertenciaFecha)}</p>` : ""}
+            ${completed ? `<p class="task-locked-note">Esta tarea esta en Hecho y ya no se puede modificar.</p>` : ""}
         </article>
     `
 }
@@ -488,20 +666,25 @@ function bindEvents() {
     document.querySelector("#refresh-btn")?.addEventListener("click", () => refreshTasks(true, true))
     document.querySelector("#export-board-pdf")?.addEventListener("click", handleExportBoardPdf)
     document.querySelector("#logout-btn")?.addEventListener("click", handleLogout)
+    document.querySelector("#open-menu")?.addEventListener("click", openSidebar)
+    document.querySelector("#close-menu")?.addEventListener("click", closeSidebar)
+    document.querySelector("#sidebar-backdrop")?.addEventListener("click", closeSidebar)
     document.querySelector("#open-task-form")?.addEventListener("click", openTaskForm)
     document.querySelector("#close-task-form")?.addEventListener("click", closeTaskForm)
     document.querySelector("#cancel-task-form")?.addEventListener("click", closeTaskForm)
     document.querySelector("#task-form")?.addEventListener("submit", handleTaskCreate)
+    document.querySelector("#project-form")?.addEventListener("submit", handleProjectCreate)
+    document.querySelector("#profile-form")?.addEventListener("submit", handleProfileUpdate)
 
-    document.querySelectorAll("[data-nav-type]").forEach(button => {
-        button.addEventListener("click", handleNavChange)
+    document.querySelectorAll("[data-module]").forEach(button => {
+        button.addEventListener("click", handleModuleChange)
     })
 
     document.querySelectorAll("[data-delete]").forEach(button => {
         button.addEventListener("click", handleDelete)
     })
 
-    document.querySelectorAll("[data-task-id]").forEach(card => {
+    document.querySelectorAll("[data-task-id]:not(.task-card-locked)").forEach(card => {
         card.addEventListener("dragstart", handleDragStart)
         card.addEventListener("dragend", handleDragEnd)
     })
@@ -617,15 +800,21 @@ function normalizeDni(value) {
     return String(value || "").replace(/\D/g, "")
 }
 
-function handleNavChange(event) {
-    const type = event.currentTarget.dataset.navType
-    const rawValue = event.currentTarget.dataset.navValue
+function openSidebar() {
+    state.sidebarOpen = true
+    render()
+}
 
-    state.activeNav = {
-        type,
-        value: rawValue === "" ? null : Number.isNaN(Number(rawValue)) ? rawValue : Number(rawValue)
-    }
+function closeSidebar() {
+    state.sidebarOpen = false
+    render()
+}
 
+function handleModuleChange(event) {
+    state.activeModule = event.currentTarget.dataset.module
+    state.sidebarOpen = false
+    state.taskFormOpen = false
+    state.message = null
     render()
 }
 
@@ -651,6 +840,12 @@ async function handleDrop(event) {
     const task = state.tareas.find(item => item.id === taskId)
 
     if (!task || task.estado === status) {
+        return
+    }
+
+    if (task.estado === "COMPLETADA") {
+        state.message = { type: "warn", text: "Las tareas en Hecho ya no se pueden modificar." }
+        render()
         return
     }
 
@@ -702,7 +897,66 @@ async function handleTaskCreate(event) {
     }
 }
 
+async function handleProjectCreate(event) {
+    event.preventDefault()
+    setLoading(true)
+
+    const formData = new FormData(event.currentTarget)
+    const payload = {
+        nombre: String(formData.get("nombre") || "").trim(),
+        descripcion: String(formData.get("descripcion") || "").trim()
+    }
+
+    try {
+        const proyecto = await fetchJson("/api/proyectos", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        })
+
+        state.proyectos.push(proyecto)
+        state.proyectos.sort((a, b) => a.nombre.localeCompare(b.nombre))
+        state.message = { type: "info", text: "Proyecto creado correctamente." }
+    } catch (error) {
+        state.message = { type: "error", text: error.message }
+    } finally {
+        setLoading(false)
+        render()
+    }
+}
+
+async function handleProfileUpdate(event) {
+    event.preventDefault()
+    setLoading(true)
+
+    const formData = new FormData(event.currentTarget)
+    const payload = {
+        nombres: String(formData.get("nombres") || "").trim().replace(/\s+/g, " "),
+        fotoUrl: String(formData.get("fotoUrl") || "").trim()
+    }
+
+    try {
+        state.user = await fetchJson("/api/auth/me", {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        })
+        await loadDashboardData()
+        state.message = { type: "info", text: "Perfil actualizado correctamente." }
+    } catch (error) {
+        state.message = { type: "error", text: error.message }
+    } finally {
+        setLoading(false)
+        render()
+    }
+}
+
 async function handleDelete(event) {
+    const task = state.tareas.find(item => String(item.id) === String(event.currentTarget.dataset.delete))
+    if (task?.estado === "COMPLETADA") {
+        state.message = { type: "warn", text: "Las tareas en Hecho ya no se pueden modificar." }
+        render()
+        return
+    }
+
     setLoading(true)
 
     try {
@@ -762,13 +1016,7 @@ function buildReportUrl() {
         params.set("q", term)
     }
 
-    if (state.activeNav.type === "project") {
-        params.set("proyectoId", state.activeNav.value)
-    }
-
-    if (state.activeNav.type === "my") {
-        params.set("usuarioId", state.user.id)
-    }
+    params.set("usuarioId", state.user.id)
 
     if (state.filters.assigneeId) {
         params.set("usuarioId", state.filters.assigneeId)
@@ -793,7 +1041,8 @@ async function handleLogout() {
         state.usuarios = []
         state.taskFormOpen = false
         state.searchTerm = ""
-        state.activeNav = { type: "all", value: null }
+        state.activeModule = "myTasks"
+        state.sidebarOpen = false
         state.filters = { assigneeId: "", deadline: "all", sort: "deadline" }
         state.liveNotifications = []
         state.authMode = "login"
@@ -893,18 +1142,35 @@ function addLiveNotification(text) {
     }, 5500)
 }
 
-function buildProjectSummaries() {
-    return state.proyectos.map(project => ({
-        ...project,
-        count: state.tareas.filter(tarea => tarea.proyectoId === project.id).length
-    }))
-}
-
 function buildKanbanColumns(tasks) {
     return TASK_STATUSES.reduce((acc, status) => {
         acc[status.key] = tasks.filter(tarea => tarea.estado === status.key)
         return acc
     }, {})
+}
+
+function resolveActiveModule() {
+    return MODULES.find(module => module.key === state.activeModule) || MODULES[0]
+}
+
+function getModuleCount(moduleKey) {
+    if (moduleKey === "myTasks") {
+        return state.tareas.filter(tarea => tarea.usuarioAsignadoId === state.user.id).length
+    }
+
+    if (moduleKey === "team") {
+        return state.usuarios.length
+    }
+
+    if (moduleKey === "projects") {
+        return state.proyectos.length
+    }
+
+    if (moduleKey === "calendar") {
+        return state.tareas.length
+    }
+
+    return ""
 }
 
 function buildBoardMeta(tasks) {
@@ -916,42 +1182,15 @@ function buildBoardMeta(tasks) {
 }
 
 function getWorkspaceHeading(tasks) {
-    if (state.activeNav.type === "my") {
-        return {
-            kicker: "Vista personal",
-            title: "Mis tareas",
-            subtitle: `${tasks.length} tarjetas bajo tu responsabilidad.`
-        }
-    }
-
-    if (state.activeNav.type === "urgent") {
-        return {
-            kicker: "Vista prioritaria",
-            title: "Tareas urgentes",
-            subtitle: "Lo mas cercano al vencimiento aparece primero."
-        }
-    }
-
-    if (state.activeNav.type === "project") {
-        const project = state.proyectos.find(item => String(item.id) === String(state.activeNav.value))
-        return {
-            kicker: "Proyecto",
-            title: project ? project.nombre : "Proyecto",
-            subtitle: project?.descripcion || "Tablero filtrado por proyecto."
-        }
-    }
-
     return {
-        kicker: "Tablero",
-        title: "Workspace general",
-        subtitle: "Un flujo simple para organizar, mover y cerrar tareas."
+        kicker: "Vista personal",
+        title: "Mis Tareas",
+        subtitle: `${tasks.length} tarjetas bajo tu responsabilidad.`
     }
 }
 
 function getFilteredTasks() {
-    let tasks = [...state.tareas]
-
-    tasks = applyActiveNav(tasks)
+    let tasks = state.tareas.filter(tarea => tarea.usuarioAsignadoId === state.user.id)
 
     if (state.filters.assigneeId) {
         tasks = tasks.filter(tarea => String(tarea.usuarioAsignadoId) === String(state.filters.assigneeId))
@@ -971,22 +1210,6 @@ function getFilteredTasks() {
     }
 
     return sortTasks(tasks, state.filters.sort)
-}
-
-function applyActiveNav(tasks) {
-    if (state.activeNav.type === "my") {
-        return tasks.filter(tarea => tarea.usuarioAsignadoId === state.user.id)
-    }
-
-    if (state.activeNav.type === "urgent") {
-        return getUrgentTasks(tasks)
-    }
-
-    if (state.activeNav.type === "project") {
-        return tasks.filter(tarea => tarea.proyectoId === state.activeNav.value)
-    }
-
-    return tasks
 }
 
 function getUrgentTasks(tasks) {
@@ -1052,12 +1275,7 @@ function resetFilters() {
         deadline: "all",
         sort: "deadline"
     }
-    state.activeNav = { type: "all", value: null }
     render()
-}
-
-function isProjectActive(projectId) {
-    return state.activeNav.type === "project" && String(state.activeNav.value) === String(projectId)
 }
 
 function renderMessage() {

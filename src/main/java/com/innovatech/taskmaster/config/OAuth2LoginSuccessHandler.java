@@ -38,6 +38,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 Usuario usuario = usuarioRepository.findByEmail(normalizedEmail).orElseGet(Usuario::new);
                 usuario.setEmail(normalizedEmail);
                 usuario.setNombres(resolveDisplayName(oauth2User));
+                usuario.setFotoUrl(oauth2User.getAttribute("picture"));
 
                 if (usuario.getPassword() == null || usuario.getPassword().isBlank()) {
                     usuario.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));

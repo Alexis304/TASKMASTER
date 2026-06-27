@@ -75,6 +75,7 @@ public class TareaService {
     public TareaResponse actualizarEstado(Long id, EstadoTarea estado) {
         Tarea tarea = tareaRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Tarea no encontrada"));
+        validarTareaEditable(tarea);
         tarea.setEstado(estado);
         Tarea actualizada = tareaRepository.save(tarea);
         TareaResponse response = toResponse(actualizada, holidayValidationService.generarAdvertencia(actualizada.getFechaLimite()));
@@ -85,6 +86,7 @@ public class TareaService {
     public TareaResponse actualizarTarea(Long id, TareaUpdateRequest request) {
         Tarea tarea = tareaRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Tarea no encontrada"));
+        validarTareaEditable(tarea);
 
         aplicarCambios(
             tarea,
@@ -105,6 +107,7 @@ public class TareaService {
     public void eliminar(Long id) {
         Tarea tarea = tareaRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Tarea no encontrada"));
+        validarTareaEditable(tarea);
         String titulo = tarea.getTitulo();
         tareaRepository.delete(tarea);
         taskRealtimeService.tareaEliminada(id, titulo);
@@ -145,6 +148,12 @@ public class TareaService {
         tarea.setEstado(estado);
         tarea.setProyecto(proyecto);
         tarea.setUsuarioAsignado(usuario);
+    }
+
+    private void validarTareaEditable(Tarea tarea) {
+        if (tarea.getEstado() == EstadoTarea.COMPLETADA) {
+            throw new IllegalArgumentException("Las tareas en Hecho ya no se pueden modificar.");
+        }
     }
 
     private Specification<Tarea> buildFilters(EstadoTarea estado, Long proyectoId, Long usuarioId, String q) {

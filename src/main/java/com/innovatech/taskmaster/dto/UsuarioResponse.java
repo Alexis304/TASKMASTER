@@ -4,6 +4,7 @@ public record UsuarioResponse(
     Long id,
     String email,
     String dni,
-    String nombres
+    String nombres,
+    String fotoUrl
 ) {
 }

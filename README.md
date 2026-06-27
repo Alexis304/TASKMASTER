@@ -17,7 +17,9 @@ TaskMaster API es una aplicacion web funcional para gestionar tareas corporativa
 ## Que incluye hoy
 
 - Login web con sesion segura y Google OAuth.
+- Plataforma con menu tipo sandwich y modulos de Mis Tareas, Equipo de trabajo, Proyectos, Calendario y Perfil.
 - Dashboard Kanban para listar, crear, mover, actualizar y eliminar tareas.
+- Bloqueo de tareas finalizadas: una tarea en `Hecho` ya no se puede modificar ni eliminar.
 - API REST para usuarios, proyectos y tareas.
 - Consumo de API REST externa para validar DNI en registros y altas de usuarios.
 - Consumo de SOAP para exportar el tablero a PDF.
