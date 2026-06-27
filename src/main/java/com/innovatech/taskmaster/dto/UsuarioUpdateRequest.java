@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record UsuarioUpdateRequest(
-    @NotBlank @Pattern(regexp = "\\d{8}", message = "debe tener 8 digitos") String dni,
+    @NotBlank @Pattern(regexp = "^(?=(?:.*\\d){8}\\D*$)[\\d\\s.-]+$", message = "debe contener exactamente 8 digitos") String dni,
     @NotBlank @Email String email,
     @Size(min = 8, max = 72) String password
 ) {

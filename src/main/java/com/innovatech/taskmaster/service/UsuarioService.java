@@ -54,11 +54,12 @@ public class UsuarioService {
             throw new IllegalArgumentException("Ya existe una cuenta registrada con este correo.");
         }
 
-        DniPersona persona = dniRestClient.obtenerPersonaPorDni(request.dni());
+        String normalizedDni = normalizeDni(request.dni());
+        DniPersona persona = dniRestClient.obtenerPersonaPorDni(normalizedDni);
         validarPersonaActiva(persona);
 
         usuario.setEmail(normalizedEmail);
-        usuario.setDni(persona.dni());
+        usuario.setDni(normalizeDni(persona.dni()));
         usuario.setNombres(persona.nombreCompleto());
 
         if (request.password() != null && !request.password().isBlank()) {
@@ -85,18 +86,19 @@ public class UsuarioService {
     }
 
     public Usuario crearUsuario(String dni, String email, String password) {
+        String normalizedDni = normalizeDni(dni);
         String normalizedEmail = normalizeEmail(email);
         if (usuarioRepository.existsByEmail(normalizedEmail)) {
             throw new IllegalArgumentException("Ya existe una cuenta registrada con este correo.");
         }
 
-        DniPersona persona = dniRestClient.obtenerPersonaPorDni(dni);
+        DniPersona persona = dniRestClient.obtenerPersonaPorDni(normalizedDni);
         validarPersonaActiva(persona);
 
         Usuario usuario = new Usuario();
         usuario.setEmail(normalizedEmail);
         usuario.setPassword(passwordEncoder.encode(password));
-        usuario.setDni(persona.dni());
+        usuario.setDni(normalizeDni(persona.dni()));
         usuario.setNombres(persona.nombreCompleto());
 
         return usuarioRepository.save(usuario);
@@ -114,5 +116,9 @@ public class UsuarioService {
 
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase();
+    }
+
+    private String normalizeDni(String dni) {
+        return dni == null ? "" : dni.replaceAll("\\D", "");
     }
 }

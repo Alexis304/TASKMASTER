@@ -36,13 +36,14 @@ public class DniRestClient {
             throw new IllegalArgumentException("Configura TASKMASTER_DNI_API_TOKEN para validar DNI con la API REST.");
         }
 
+        String normalizedDni = dni == null ? "" : dni.replaceAll("\\D", "");
         try {
             JsonNode response = webClient.post()
                 .uri(apiUrl)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(Map.of("dni", dni))
+                .bodyValue(Map.of("dni", normalizedDni))
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, clientResponse -> clientResponse.bodyToMono(String.class)
                     .defaultIfEmpty("")
@@ -53,7 +54,7 @@ public class DniRestClient {
                 .bodyToMono(JsonNode.class)
                 .block(Duration.ofSeconds(12));
 
-            return toPersona(dni, response);
+            return toPersona(normalizedDni, response);
         } catch (WebClientResponseException exception) {
             throw new IllegalArgumentException("No se encontro informacion para el DNI indicado.");
         }

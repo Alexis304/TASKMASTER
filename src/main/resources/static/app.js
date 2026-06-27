@@ -160,7 +160,7 @@ function renderRegisterForm() {
         <form id="register-form" class="auth-form">
             <label class="field">
                 <span class="field-label">DNI</span>
-                <input type="text" name="dni" placeholder="Ingresa tu DNI de 8 digitos" inputmode="numeric" maxlength="8" required>
+                <input type="text" name="dni" placeholder="Ingresa tu DNI de 8 digitos" inputmode="numeric" maxlength="8" autocomplete="off" required>
             </label>
 
             <label class="field">
@@ -182,7 +182,7 @@ function renderRegisterForm() {
                 ${state.loading ? "Creando cuenta..." : "Crear cuenta"}
             </button>
 
-            <p class="field-caption">El nombre se completa automaticamente despues de validar tu DNI por SOAP.</p>
+            <p class="field-caption">El nombre se completa automaticamente despues de validar tu DNI por API REST.</p>
         </form>
     `
 }
@@ -431,6 +431,7 @@ function bindEvents() {
     if (!state.user) {
         document.querySelector("#login-form")?.addEventListener("submit", handleLogin)
         document.querySelector("#register-form")?.addEventListener("submit", handleRegister)
+        document.querySelector("input[name='dni']")?.addEventListener("input", handleDniInput)
         return
     }
 
@@ -518,13 +519,13 @@ async function handleLogin(event) {
 async function handleRegister(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    const dni = String(formData.get("dni") || "").trim()
+    const dni = normalizeDni(formData.get("dni"))
     const email = String(formData.get("email") || "").trim()
     const password = String(formData.get("password") || "")
     const confirmPassword = String(formData.get("confirmPassword") || "")
 
     if (!/^\d{8}$/.test(dni)) {
-        state.message = { type: "error", text: "Ingresa un DNI valido de 8 digitos." }
+        state.message = { type: "error", text: "Ingresa un DNI valido de exactamente 8 digitos." }
         render()
         return
     }
@@ -564,6 +565,14 @@ async function handleRegister(event) {
         setLoading(false)
         render()
     }
+}
+
+function handleDniInput(event) {
+    event.target.value = normalizeDni(event.target.value).slice(0, 8)
+}
+
+function normalizeDni(value) {
+    return String(value || "").replace(/\D/g, "")
 }
 
 function handleNavChange(event) {
