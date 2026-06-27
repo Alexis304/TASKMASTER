@@ -17,6 +17,7 @@ const state = {
     tareas: [],
     proyectos: [],
     usuarios: [],
+    equipoMiembros: [],
     authProviders: { googleEnabled: false, googleAuthUrl: "/oauth2/authorization/google" },
     authMode: "login",
     message: null,
@@ -25,6 +26,8 @@ const state = {
     liveNotifications: [],
     sidebarOpen: false,
     activeModule: "myTasks",
+    selectedTeamProjectId: "",
+    calendarMonth: new Date().toISOString().slice(0, 7),
     searchTerm: "",
     taskFormOpen: false,
     draggingTaskId: null,
@@ -80,15 +83,21 @@ function applyUrlFeedback() {
 }
 
 async function loadDashboardData() {
-    const [tareas, proyectos, usuarios] = await Promise.all([
+    const [tareas, proyectos, usuarios, equipoMiembros] = await Promise.all([
         fetchJson("/api/tareas"),
         fetchJson("/api/proyectos"),
-        fetchJson("/api/usuarios")
+        fetchJson("/api/usuarios"),
+        fetchJson("/api/equipos")
     ])
 
     state.tareas = tareas
     state.proyectos = proyectos
     state.usuarios = usuarios
+    state.equipoMiembros = equipoMiembros
+
+    if (!state.selectedTeamProjectId && proyectos.length) {
+        state.selectedTeamProjectId = String(proyectos[0].id)
+    }
 }
 
 function render() {
@@ -390,27 +399,65 @@ function renderLiveNotifications() {
 }
 
 function renderTeamModule() {
+    const projectId = state.selectedTeamProjectId || (state.proyectos[0]?.id ? String(state.proyectos[0].id) : "")
+    const selectedProject = state.proyectos.find(proyecto => String(proyecto.id) === String(projectId))
+    const miembros = state.equipoMiembros.filter(miembro => String(miembro.proyectoId) === String(projectId))
+    const memberIds = new Set(miembros.map(miembro => String(miembro.usuarioId)))
+    const availableUsers = state.usuarios.filter(usuario => !memberIds.has(String(usuario.id)))
+
     return `
         <section class="module-panel">
             <div>
                 <p class="board-kicker">Equipo de trabajo</p>
-                <h1>Cuentas vinculables</h1>
-                <p class="board-subtitle">Usuarios registrados en la plataforma para asignar tareas y colaborar en proyectos.</p>
+                <h1>Vinculacion por proyecto</h1>
+                <p class="board-subtitle">Selecciona con quien quieres trabajar en cada proyecto. No todos los usuarios quedan asociados automaticamente.</p>
             </div>
 
             ${renderMessage()}
 
+            <section class="team-manager">
+                <label class="field">
+                    <span class="field-label">Proyecto</span>
+                    <select id="team-project-select">
+                        ${state.proyectos.map(proyecto => `
+                            <option value="${proyecto.id}" ${String(projectId) === String(proyecto.id) ? "selected" : ""}>
+                                ${escapeHtml(proyecto.nombre)}
+                            </option>
+                        `).join("")}
+                    </select>
+                </label>
+
+                <form id="team-member-form" class="team-member-form">
+                    <label class="field">
+                        <span class="field-label">Agregar cuenta al equipo</span>
+                        <select name="usuarioId" ${!availableUsers.length ? "disabled" : ""}>
+                            ${availableUsers.length
+                                ? availableUsers.map(usuario => `
+                                    <option value="${usuario.id}">${escapeHtml(usuario.nombres)} - ${escapeHtml(usuario.email)}</option>
+                                `).join("")
+                                : `<option value="">No hay usuarios disponibles para asociar</option>`}
+                        </select>
+                    </label>
+                    <button class="primary-button" type="submit" ${!selectedProject || !availableUsers.length ? "disabled" : ""}>
+                        Asociar
+                    </button>
+                </form>
+            </section>
+
             <div class="team-grid">
-                ${state.usuarios.map(usuario => `
-                    <article class="team-card">
-                        ${renderAvatar(usuario.nombres, usuario.fotoUrl)}
-                        <div>
-                            <h3>${escapeHtml(usuario.nombres)}</h3>
-                            <p>${escapeHtml(usuario.email)}</p>
-                            <span>${usuario.id === state.user.id ? "Tu cuenta" : "Disponible para colaboracion"}</span>
-                        </div>
-                    </article>
-                `).join("")}
+                ${miembros.length
+                    ? miembros.map(miembro => `
+                        <article class="team-card">
+                            ${renderAvatar(miembro.usuarioNombre, miembro.usuarioFotoUrl)}
+                            <div>
+                                <h3>${escapeHtml(miembro.usuarioNombre)}</h3>
+                                <p>${escapeHtml(miembro.usuarioEmail)}</p>
+                                <span>${escapeHtml(selectedProject?.nombre || "Proyecto")}</span>
+                            </div>
+                            <button class="delete-link team-remove" type="button" data-remove-team-member="${miembro.id}" aria-label="Quitar del equipo">x</button>
+                        </article>
+                    `).join("")
+                    : `<div class="empty-state">Este proyecto aun no tiene cuentas asociadas.</div>`}
             </div>
         </section>
     `
@@ -455,32 +502,94 @@ function renderProjectsModule() {
 }
 
 function renderCalendarModule() {
-    const tasks = [...state.tareas].sort((a, b) => String(a.fechaLimite || "").localeCompare(String(b.fechaLimite || "")))
+    const days = buildCalendarDays()
 
     return `
         <section class="module-panel">
-            <div>
-                <p class="board-kicker">Calendario</p>
-                <h1>Trazabilidad de tareas</h1>
-                <p class="board-subtitle">Vista cronologica de tareas programadas, en curso y realizadas.</p>
-            </div>
+            <header class="calendar-header">
+                <div>
+                    <p class="board-kicker">Calendario</p>
+                    <h1>${escapeHtml(formatMonthTitle(state.calendarMonth))}</h1>
+                    <p class="board-subtitle">Vista mensual de tareas programadas, en curso y realizadas.</p>
+                </div>
+
+                <div class="calendar-actions">
+                    <button class="ghost-button" type="button" data-calendar-nav="-1">Anterior</button>
+                    <button class="ghost-button" type="button" data-calendar-nav="today">Hoy</button>
+                    <button class="ghost-button" type="button" data-calendar-nav="1">Siguiente</button>
+                </div>
+            </header>
 
             ${renderMessage()}
 
-            <div class="calendar-list">
-                ${tasks.map(tarea => `
-                    <article class="calendar-item">
-                        <time>${escapeHtml(formatDate(tarea.fechaLimite))}</time>
-                        <div>
-                            <h3>${escapeHtml(tarea.titulo)}</h3>
-                            <p>${escapeHtml(tarea.proyectoNombre)} · ${escapeHtml(tarea.usuarioAsignadoNombre)}</p>
-                        </div>
-                        <span class="status-chip status-${tarea.estado.toLowerCase()}">${escapeHtml(formatStatus(tarea.estado))}</span>
-                    </article>
-                `).join("")}
-            </div>
+            <section class="calendar-shell">
+                <div class="calendar-weekdays">
+                    ${["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"].map(day => `<span>${day}</span>`).join("")}
+                </div>
+
+                <div class="calendar-grid">
+                    ${days.map(day => {
+                        const tasks = getTasksForDate(day.iso)
+                        return `
+                            <article class="calendar-day ${day.inMonth ? "" : "calendar-day-muted"} ${day.isToday ? "calendar-day-today" : ""}">
+                                <time>${day.date.getDate()}</time>
+                                <div class="calendar-events">
+                                    ${tasks.slice(0, 4).map(tarea => `
+                                        <div class="calendar-event status-${tarea.estado.toLowerCase()}">
+                                            <strong>${escapeHtml(tarea.titulo)}</strong>
+                                            <span>${escapeHtml(tarea.usuarioAsignadoNombre)}</span>
+                                        </div>
+                                    `).join("")}
+                                    ${tasks.length > 4 ? `<span class="calendar-more">+${tasks.length - 4} mas</span>` : ""}
+                                </div>
+                            </article>
+                        `
+                    }).join("")}
+                </div>
+            </section>
         </section>
     `
+}
+
+function buildCalendarDays() {
+    const [year, month] = state.calendarMonth.split("-").map(Number)
+    const firstDay = new Date(year, month - 1, 1)
+    const start = new Date(firstDay)
+    start.setDate(firstDay.getDate() - firstDay.getDay())
+    const todayIso = toIsoDate(new Date())
+
+    return Array.from({ length: 42 }, (_, index) => {
+        const date = new Date(start)
+        date.setDate(start.getDate() + index)
+        const iso = toIsoDate(date)
+        return {
+            date,
+            iso,
+            inMonth: date.getMonth() === month - 1,
+            isToday: iso === todayIso
+        }
+    })
+}
+
+function getTasksForDate(isoDate) {
+    return state.tareas
+        .filter(tarea => tarea.fechaLimite === isoDate)
+        .sort((a, b) => a.estado.localeCompare(b.estado))
+}
+
+function formatMonthTitle(monthValue) {
+    const [year, month] = monthValue.split("-").map(Number)
+    return new Date(year, month - 1, 1).toLocaleDateString("es-PE", {
+        month: "long",
+        year: "numeric"
+    })
+}
+
+function toIsoDate(date) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
 }
 
 function renderProfileModule() {
@@ -509,8 +618,9 @@ function renderProfileModule() {
                 </label>
 
                 <label class="field">
-                    <span class="field-label">URL de foto</span>
-                    <input type="url" name="fotoUrl" value="${escapeHtml(state.user.fotoUrl || "")}" placeholder="https://...">
+                    <span class="field-label">Foto de perfil</span>
+                    <input type="file" name="foto" accept="image/jpeg,image/png,image/webp">
+                    <span class="field-caption">Formatos permitidos: JPG, PNG o WEBP. Maximo 2 MB.</span>
                 </label>
 
                 <button class="primary-button" type="submit">${state.loading ? "Guardando..." : "Guardar perfil"}</button>
@@ -571,6 +681,9 @@ function renderTaskCard(tarea) {
 }
 
 function renderTaskModal() {
+    const initialProjectId = state.proyectos[0]?.id || ""
+    const initialUsers = getAssignableUsers(initialProjectId)
+
     return `
         <div class="modal-backdrop">
             <section class="task-modal">
@@ -601,10 +714,11 @@ function renderTaskModal() {
 
                         <label class="field">
                             <span class="field-label">Proyecto</span>
-                            <select name="proyectoId" required>
-                                <option value="">Selecciona un proyecto</option>
+                            <select id="task-project-select" name="proyectoId" required>
                                 ${state.proyectos.map(proyecto => `
-                                    <option value="${proyecto.id}">${escapeHtml(proyecto.nombre)}</option>
+                                    <option value="${proyecto.id}" ${String(initialProjectId) === String(proyecto.id) ? "selected" : ""}>
+                                        ${escapeHtml(proyecto.nombre)}
+                                    </option>
                                 `).join("")}
                             </select>
                         </label>
@@ -612,9 +726,9 @@ function renderTaskModal() {
 
                     <label class="field">
                         <span class="field-label">Responsable</span>
-                        <select name="usuarioAsignadoId" required>
+                        <select id="task-assignee-select" name="usuarioAsignadoId" required>
                             <option value="">Selecciona un usuario</option>
-                            ${state.usuarios.map(usuario => `
+                            ${initialUsers.map(usuario => `
                                 <option value="${usuario.id}">${escapeHtml(usuario.nombres)} - ${escapeHtml(usuario.email)}</option>
                             `).join("")}
                         </select>
@@ -673,11 +787,22 @@ function bindEvents() {
     document.querySelector("#close-task-form")?.addEventListener("click", closeTaskForm)
     document.querySelector("#cancel-task-form")?.addEventListener("click", closeTaskForm)
     document.querySelector("#task-form")?.addEventListener("submit", handleTaskCreate)
+    document.querySelector("#task-project-select")?.addEventListener("change", handleTaskProjectChange)
     document.querySelector("#project-form")?.addEventListener("submit", handleProjectCreate)
     document.querySelector("#profile-form")?.addEventListener("submit", handleProfileUpdate)
+    document.querySelector("#team-project-select")?.addEventListener("change", handleTeamProjectChange)
+    document.querySelector("#team-member-form")?.addEventListener("submit", handleTeamMemberCreate)
 
     document.querySelectorAll("[data-module]").forEach(button => {
         button.addEventListener("click", handleModuleChange)
+    })
+
+    document.querySelectorAll("[data-remove-team-member]").forEach(button => {
+        button.addEventListener("click", handleTeamMemberDelete)
+    })
+
+    document.querySelectorAll("[data-calendar-nav]").forEach(button => {
+        button.addEventListener("click", handleCalendarNav)
     })
 
     document.querySelectorAll("[data-delete]").forEach(button => {
@@ -915,6 +1040,7 @@ async function handleProjectCreate(event) {
 
         state.proyectos.push(proyecto)
         state.proyectos.sort((a, b) => a.nombre.localeCompare(b.nombre))
+        state.selectedTeamProjectId = String(proyecto.id)
         state.message = { type: "info", text: "Proyecto creado correctamente." }
     } catch (error) {
         state.message = { type: "error", text: error.message }
@@ -924,14 +1050,80 @@ async function handleProjectCreate(event) {
     }
 }
 
+function handleTeamProjectChange(event) {
+    state.selectedTeamProjectId = event.target.value
+    state.message = null
+    render()
+}
+
+async function handleTeamMemberCreate(event) {
+    event.preventDefault()
+
+    const formData = new FormData(event.currentTarget)
+    const usuarioId = Number(formData.get("usuarioId"))
+    const proyectoId = Number(state.selectedTeamProjectId)
+
+    if (!proyectoId || !usuarioId) {
+        state.message = { type: "error", text: "Selecciona proyecto y usuario para asociar." }
+        render()
+        return
+    }
+
+    setLoading(true)
+
+    try {
+        const miembro = await fetchJson("/api/equipos", {
+            method: "POST",
+            body: JSON.stringify({ proyectoId, usuarioId })
+        })
+        state.equipoMiembros.push(miembro)
+        state.message = { type: "info", text: "Cuenta asociada al proyecto correctamente." }
+    } catch (error) {
+        state.message = { type: "error", text: error.message }
+    } finally {
+        setLoading(false)
+        render()
+    }
+}
+
+async function handleTeamMemberDelete(event) {
+    setLoading(true)
+    const id = event.currentTarget.dataset.removeTeamMember
+
+    try {
+        await fetchJson(`/api/equipos/${id}`, { method: "DELETE" })
+        state.equipoMiembros = state.equipoMiembros.filter(miembro => String(miembro.id) !== String(id))
+        state.message = { type: "info", text: "Cuenta removida del proyecto." }
+    } catch (error) {
+        state.message = { type: "error", text: error.message }
+    } finally {
+        setLoading(false)
+        render()
+    }
+}
+
+function handleTaskProjectChange(event) {
+    const assigneeSelect = document.querySelector("#task-assignee-select")
+    if (!assigneeSelect) {
+        return
+    }
+
+    const users = getAssignableUsers(event.target.value)
+    assigneeSelect.innerHTML = `
+        <option value="">Selecciona un usuario</option>
+        ${users.map(usuario => `
+            <option value="${usuario.id}">${escapeHtml(usuario.nombres)} - ${escapeHtml(usuario.email)}</option>
+        `).join("")}
+    `
+}
+
 async function handleProfileUpdate(event) {
     event.preventDefault()
     setLoading(true)
 
     const formData = new FormData(event.currentTarget)
     const payload = {
-        nombres: String(formData.get("nombres") || "").trim().replace(/\s+/g, " "),
-        fotoUrl: String(formData.get("fotoUrl") || "").trim()
+        nombres: String(formData.get("nombres") || "").trim().replace(/\s+/g, " ")
     }
 
     try {
@@ -939,6 +1131,14 @@ async function handleProfileUpdate(event) {
             method: "PUT",
             body: JSON.stringify(payload)
         })
+
+        const photo = formData.get("foto")
+        if (photo && photo.size > 0) {
+            const photoData = new FormData()
+            photoData.append("file", photo)
+            state.user = await fetchMultipart("/api/auth/me/photo", photoData)
+        }
+
         await loadDashboardData()
         state.message = { type: "info", text: "Perfil actualizado correctamente." }
     } catch (error) {
@@ -947,6 +1147,21 @@ async function handleProfileUpdate(event) {
         setLoading(false)
         render()
     }
+}
+
+function handleCalendarNav(event) {
+    const direction = event.currentTarget.dataset.calendarNav
+
+    if (direction === "today") {
+        state.calendarMonth = new Date().toISOString().slice(0, 7)
+        render()
+        return
+    }
+
+    const [year, month] = state.calendarMonth.split("-").map(Number)
+    const nextDate = new Date(year, month - 1 + Number(direction), 1)
+    state.calendarMonth = nextDate.toISOString().slice(0, 7)
+    render()
 }
 
 async function handleDelete(event) {
@@ -1159,7 +1374,7 @@ function getModuleCount(moduleKey) {
     }
 
     if (moduleKey === "team") {
-        return state.usuarios.length
+        return state.equipoMiembros.length
     }
 
     if (moduleKey === "projects") {
@@ -1171,6 +1386,17 @@ function getModuleCount(moduleKey) {
     }
 
     return ""
+}
+
+function getAssignableUsers(projectId) {
+    const miembros = state.equipoMiembros.filter(miembro => String(miembro.proyectoId) === String(projectId))
+
+    if (!miembros.length) {
+        return state.usuarios
+    }
+
+    const memberIds = new Set(miembros.map(miembro => String(miembro.usuarioId)))
+    return state.usuarios.filter(usuario => memberIds.has(String(usuario.id)))
 }
 
 function buildBoardMeta(tasks) {
@@ -1355,6 +1581,33 @@ async function fetchBlob(url) {
         blob: await response.blob(),
         fileName: match ? match[1] : "taskmaster-tablero.pdf"
     }
+}
+
+async function fetchMultipart(url, formData) {
+    const response = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        body: formData
+    })
+
+    const contentType = response.headers.get("content-type") || ""
+    const payload = contentType.includes("application/json")
+        ? await response.json()
+        : await response.text()
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            state.user = null
+            throw new Error("Tu sesion expiro. Vuelve a iniciar sesion.")
+        }
+
+        const message = typeof payload === "string"
+            ? payload
+            : payload.message || "No se pudo subir la foto."
+        throw new Error(message)
+    }
+
+    return payload
 }
 
 function getDaysUntil(dateValue) {

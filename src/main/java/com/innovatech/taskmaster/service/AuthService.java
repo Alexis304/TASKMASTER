@@ -21,6 +21,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import java.util.Base64;
+import java.util.Set;
 
 @Service
 public class AuthService {
@@ -29,6 +33,8 @@ public class AuthService {
     private final UsuarioService usuarioService;
     private final AuthenticationManager authenticationManager;
     private final String googleClientId;
+    private static final long MAX_PHOTO_SIZE_BYTES = 2 * 1024 * 1024;
+    private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
 
     public AuthService(
         UsuarioRepository usuarioRepository,
@@ -86,7 +92,37 @@ public class AuthService {
             .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
         usuario.setNombres(normalizeName(request.nombres()));
-        usuario.setFotoUrl(trimToNull(request.fotoUrl()));
+        if (request.fotoUrl() != null) {
+            usuario.setFotoUrl(trimToNull(request.fotoUrl()));
+        }
+
+        Usuario updated = usuarioRepository.save(usuario);
+        return new CurrentUserResponse(updated.getId(), updated.getEmail(), updated.getNombres(), updated.getFotoUrl());
+    }
+
+    public CurrentUserResponse updateProfilePhoto(MultipartFile file, Authentication authentication) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Selecciona una imagen para actualizar tu foto.");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("La foto debe ser JPG, PNG o WEBP.");
+        }
+
+        if (file.getSize() > MAX_PHOTO_SIZE_BYTES) {
+            throw new IllegalArgumentException("La foto no debe superar 2 MB.");
+        }
+
+        Usuario usuario = usuarioRepository.findByEmail(resolveAuthenticatedEmail(authentication))
+            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        try {
+            String encoded = Base64.getEncoder().encodeToString(file.getBytes());
+            usuario.setFotoUrl("data:" + contentType + ";base64," + encoded);
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("No se pudo procesar la imagen seleccionada.");
+        }
 
         Usuario updated = usuarioRepository.save(usuario);
         return new CurrentUserResponse(updated.getId(), updated.getEmail(), updated.getNombres(), updated.getFotoUrl());

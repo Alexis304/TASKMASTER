@@ -10,13 +10,16 @@ import com.innovatech.taskmaster.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -60,6 +63,14 @@ public class AuthController {
         Authentication authentication
     ) {
         return ResponseEntity.ok(authService.updateProfile(request, authentication));
+    }
+
+    @PostMapping(value = "/me/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CurrentUserResponse> updateProfilePhoto(
+        @RequestPart("file") MultipartFile file,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(authService.updateProfilePhoto(file, authentication));
     }
 
     @PostMapping("/logout")

@@ -109,6 +109,13 @@ a {
     background: var(--accent-strong);
 }
 
+.primary-button:disabled,
+.ghost-button:disabled,
+select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .ghost-button {
     min-height: 40px;
     padding: 0 14px;
@@ -806,9 +813,26 @@ a {
     gap: 12px;
 }
 
+.team-manager {
+    display: grid;
+    grid-template-columns: minmax(220px, 320px) minmax(280px, 1fr);
+    gap: 12px;
+    align-items: end;
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.team-member-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+}
+
 .team-card,
 .project-card,
-.calendar-item,
 .project-form,
 .profile-form {
     border-radius: var(--radius-lg);
@@ -817,8 +841,7 @@ a {
 }
 
 .team-card,
-.project-card,
-.calendar-item {
+.project-card {
     padding: 14px;
 }
 
@@ -828,16 +851,23 @@ a {
     gap: 12px;
 }
 
+.team-card > div {
+    min-width: 0;
+    flex: 1;
+}
+
+.team-remove {
+    flex: 0 0 auto;
+}
+
 .team-card h3,
-.project-card h3,
-.calendar-item h3 {
+.project-card h3 {
     margin: 0;
     font-size: 1rem;
 }
 
 .team-card p,
-.project-card p,
-.calendar-item p {
+.project-card p {
     margin: 5px 0;
     color: var(--muted);
 }
@@ -862,21 +892,120 @@ a {
     gap: 14px;
 }
 
-.calendar-list {
-    display: grid;
-    gap: 10px;
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 16px;
 }
 
-.calendar-item {
-    display: grid;
-    grid-template-columns: 120px minmax(0, 1fr) auto;
-    gap: 12px;
-    align-items: center;
+.calendar-actions {
+    display: flex;
+    gap: 8px;
 }
 
-.calendar-item time {
+.calendar-shell {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.calendar-weekdays,
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(120px, 1fr));
+}
+
+.calendar-weekdays {
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-soft);
+}
+
+.calendar-weekdays span {
+    padding: 10px;
     color: var(--muted);
-    font-size: 0.88rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.calendar-grid {
+    min-width: 840px;
+}
+
+.calendar-day {
+    min-height: 132px;
+    padding: 8px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 6px;
+    align-content: start;
+}
+
+.calendar-day:nth-child(7n) {
+    border-right: 0;
+}
+
+.calendar-day time {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-grid;
+    place-items: center;
+    color: var(--text);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.calendar-day-muted {
+    background: #fafbfc;
+}
+
+.calendar-day-muted time {
+    color: #a5adba;
+}
+
+.calendar-day-today time {
+    background: var(--accent);
+    color: white;
+}
+
+.calendar-events {
+    display: grid;
+    gap: 5px;
+    align-content: start;
+}
+
+.calendar-event {
+    padding: 5px 7px;
+    border-radius: 7px;
+    display: grid;
+    gap: 2px;
+    font-size: 0.76rem;
+}
+
+.calendar-event strong,
+.calendar-event span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.calendar-more,
+.empty-state {
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.empty-state {
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
 }
 
 .status-chip {
@@ -999,6 +1128,21 @@ a {
     .form-grid {
         grid-template-columns: 1fr;
     }
+
+    .team-manager,
+    .team-member-form {
+        grid-template-columns: 1fr;
+    }
+
+    .calendar-header,
+    .calendar-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .calendar-shell {
+        overflow-x: auto;
+    }
 }
 
 @media (max-width: 720px) {
@@ -1016,11 +1160,6 @@ a {
 
     .search-box {
         min-width: 0;
-    }
-
-    .calendar-item {
-        grid-template-columns: 1fr;
-        align-items: start;
     }
 
     .project-card {

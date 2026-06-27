@@ -24,11 +24,7 @@ public class HolidayValidationService {
     }
 
     public String generarAdvertencia(LocalDate fecha) {
-        if (!esFeriado(fecha)) {
-            return null;
-        }
-
-        return "La fecha limite cae en fin de semana. En la integracion final se validara tambien contra feriados externos.";
+        return null;
     }
 
     public WebClient getWebClient() {

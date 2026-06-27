@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.innovatech.taskmaster.dto.AuthRequest;
 import com.innovatech.taskmaster.dto.CurrentUserResponse;
+import com.innovatech.taskmaster.dto.EquipoMiembroResponse;
 import com.innovatech.taskmaster.dto.ProyectoResponse;
 import com.innovatech.taskmaster.dto.RegisterRequest;
 import com.innovatech.taskmaster.dto.TareaCreateRequest;
@@ -169,6 +170,12 @@ class TaskmasterApiIntegrationTest {
             "Quispe",
             "Mendoza"
         ));
+        when(dniRestClient.obtenerPersonaPorDni("74567891")).thenReturn(persona(
+            "74567891",
+            "Lucia",
+            "Torres",
+            "Salazar"
+        ));
 
         HttpResponse<String> projectResponse = client.post(
             "/api/proyectos",
@@ -184,6 +191,40 @@ class TaskmasterApiIntegrationTest {
         );
         assertEquals(200, userResponse.statusCode());
         UsuarioResponse user = objectMapper.readValue(userResponse.body(), UsuarioResponse.class);
+
+        String collaboratorEmail = "collaborator-" + System.nanoTime() + "@taskmaster.local";
+        HttpResponse<String> collaboratorResponse = client.post(
+            "/api/usuarios",
+            new UsuarioCreateRequest("74567891", "Usuario Colaborador Manual", collaboratorEmail, "Password123*")
+        );
+        assertEquals(200, collaboratorResponse.statusCode());
+        UsuarioResponse collaborator = objectMapper.readValue(collaboratorResponse.body(), UsuarioResponse.class);
+
+        HttpResponse<String> teamCreateResponse = client.post(
+            "/api/equipos",
+            Map.of("proyectoId", project.id(), "usuarioId", user.id())
+        );
+        assertEquals(200, teamCreateResponse.statusCode());
+        EquipoMiembroResponse teamMember = objectMapper.readValue(teamCreateResponse.body(), EquipoMiembroResponse.class);
+        assertEquals(project.id(), teamMember.proyectoId());
+        assertEquals(user.id(), teamMember.usuarioId());
+
+        HttpResponse<String> teamUpdateResponse = client.put(
+            "/api/equipos/" + teamMember.id(),
+            Map.of("proyectoId", project.id(), "usuarioId", collaborator.id())
+        );
+        assertEquals(200, teamUpdateResponse.statusCode());
+        EquipoMiembroResponse updatedTeamMember = objectMapper.readValue(teamUpdateResponse.body(), EquipoMiembroResponse.class);
+        assertEquals(collaborator.id(), updatedTeamMember.usuarioId());
+
+        HttpResponse<String> teamListResponse = client.get("/api/equipos?proyectoId=" + project.id());
+        assertEquals(200, teamListResponse.statusCode());
+        EquipoMiembroResponse[] teamMembers = objectMapper.readValue(teamListResponse.body(), EquipoMiembroResponse[].class);
+        assertEquals(1, teamMembers.length);
+        assertEquals(collaborator.id(), teamMembers[0].usuarioId());
+
+        HttpResponse<String> teamDeleteResponse = client.delete("/api/equipos/" + updatedTeamMember.id());
+        assertEquals(204, teamDeleteResponse.statusCode());
 
         HttpResponse<String> taskResponse = client.post(
             "/api/tareas",
