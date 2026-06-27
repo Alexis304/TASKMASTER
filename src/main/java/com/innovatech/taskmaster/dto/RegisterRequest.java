@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 
 public record RegisterRequest(
     @NotBlank @Pattern(regexp = "^(?=(?:.*\\d){8}\\D*$)[\\d\\s.-]+$", message = "debe contener exactamente 8 digitos") String dni,
+    @NotBlank @Size(min = 3, max = 120) String nombres,
     @NotBlank @Email String email,
     @NotBlank @Size(min = 8, max = 72) String password
 ) {

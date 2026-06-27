@@ -82,7 +82,10 @@ class TaskmasterApiIntegrationTest {
             "Diaz"
         ));
 
-        HttpResponse<String> registerResponse = client.post("/api/auth/register", new RegisterRequest("71234567", email, "Password123*"));
+        HttpResponse<String> registerResponse = client.post(
+            "/api/auth/register",
+            new RegisterRequest("71234567", "Nombre Manual", email, "Password123*")
+        );
         assertEquals(200, registerResponse.statusCode());
 
         Map<String, Object> authPayload = readMap(registerResponse.body());
@@ -98,18 +101,21 @@ class TaskmasterApiIntegrationTest {
     }
 
     @Test
-    void shouldRejectRegisterWhenDniDoesNotExist() throws Exception {
+    void shouldRegisterWithManualNameWhenDniApiDoesNotFindData() throws Exception {
         SessionHttpClient client = sessionClient();
         String email = "missing-dni-" + System.nanoTime() + "@taskmaster.local";
         when(dniRestClient.obtenerPersonaPorDni("70000000")).thenThrow(
             new IllegalArgumentException("No se encontro informacion para el DNI indicado.")
         );
 
-        HttpResponse<String> response = client.post("/api/auth/register", new RegisterRequest("70000000", email, "Password123*"));
-        assertEquals(400, response.statusCode());
+        HttpResponse<String> response = client.post(
+            "/api/auth/register",
+            new RegisterRequest("70000000", "Usuario Manual Prueba", email, "Password123*")
+        );
+        assertEquals(200, response.statusCode());
 
-        Map<String, Object> errorPayload = readMap(response.body());
-        assertTrue(String.valueOf(errorPayload.get("message")).contains("DNI"));
+        Map<String, Object> payload = readMap(response.body());
+        assertEquals("Usuario Manual Prueba", payload.get("nombres"));
     }
 
     @Test
@@ -174,7 +180,7 @@ class TaskmasterApiIntegrationTest {
         String userEmail = "board-user-" + System.nanoTime() + "@taskmaster.local";
         HttpResponse<String> userResponse = client.post(
             "/api/usuarios",
-            new UsuarioCreateRequest("74567890", userEmail, "Password123*")
+            new UsuarioCreateRequest("74567890", "Usuario Tablero Manual", userEmail, "Password123*")
         );
         assertEquals(200, userResponse.statusCode());
         UsuarioResponse user = objectMapper.readValue(userResponse.body(), UsuarioResponse.class);

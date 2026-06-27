@@ -41,7 +41,7 @@ public class UsuarioService {
     }
 
     public UsuarioResponse crear(UsuarioCreateRequest request) {
-        Usuario usuario = crearUsuario(request.dni(), request.email(), request.password());
+        Usuario usuario = crearUsuario(request.dni(), request.nombres(), request.email(), request.password());
         return toResponse(usuario);
     }
 
@@ -55,12 +55,12 @@ public class UsuarioService {
         }
 
         String normalizedDni = normalizeDni(request.dni());
-        DniPersona persona = dniRestClient.obtenerPersonaPorDni(normalizedDni);
-        validarPersonaActiva(persona);
+        DniPersona persona = buscarPersonaPorDni(normalizedDni);
+        String nombreCompleto = resolveNombreCompleto(persona, request.nombres());
 
         usuario.setEmail(normalizedEmail);
-        usuario.setDni(normalizeDni(persona.dni()));
-        usuario.setNombres(persona.nombreCompleto());
+        usuario.setDni(normalizedDni);
+        usuario.setNombres(nombreCompleto);
 
         if (request.password() != null && !request.password().isBlank()) {
             usuario.setPassword(passwordEncoder.encode(request.password()));
@@ -82,26 +82,44 @@ public class UsuarioService {
     }
 
     public Usuario registrar(RegisterRequest request) {
-        return crearUsuario(request.dni(), request.email(), request.password());
+        return crearUsuario(request.dni(), request.nombres(), request.email(), request.password());
     }
 
-    public Usuario crearUsuario(String dni, String email, String password) {
+    public Usuario crearUsuario(String dni, String nombres, String email, String password) {
         String normalizedDni = normalizeDni(dni);
+        String normalizedNombre = normalizeNombre(nombres);
         String normalizedEmail = normalizeEmail(email);
         if (usuarioRepository.existsByEmail(normalizedEmail)) {
             throw new IllegalArgumentException("Ya existe una cuenta registrada con este correo.");
         }
 
-        DniPersona persona = dniRestClient.obtenerPersonaPorDni(normalizedDni);
-        validarPersonaActiva(persona);
+        DniPersona persona = buscarPersonaPorDni(normalizedDni);
+        String nombreCompleto = resolveNombreCompleto(persona, normalizedNombre);
 
         Usuario usuario = new Usuario();
         usuario.setEmail(normalizedEmail);
         usuario.setPassword(passwordEncoder.encode(password));
-        usuario.setDni(normalizeDni(persona.dni()));
-        usuario.setNombres(persona.nombreCompleto());
+        usuario.setDni(normalizedDni);
+        usuario.setNombres(nombreCompleto);
 
         return usuarioRepository.save(usuario);
+    }
+
+    private DniPersona buscarPersonaPorDni(String dni) {
+        try {
+            DniPersona persona = dniRestClient.obtenerPersonaPorDni(dni);
+            validarPersonaActiva(persona);
+            return persona;
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private String resolveNombreCompleto(DniPersona persona, String fallbackNombre) {
+        if (persona != null && persona.nombreCompleto() != null && !persona.nombreCompleto().isBlank()) {
+            return normalizeNombre(persona.nombreCompleto());
+        }
+        return normalizeNombre(fallbackNombre);
     }
 
     private void validarPersonaActiva(DniPersona persona) {
@@ -116,6 +134,10 @@ public class UsuarioService {
 
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase();
+    }
+
+    private String normalizeNombre(String nombres) {
+        return nombres.trim().replaceAll("\\s+", " ");
     }
 
     private String normalizeDni(String dni) {

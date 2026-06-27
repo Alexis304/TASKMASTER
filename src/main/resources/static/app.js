@@ -164,6 +164,11 @@ function renderRegisterForm() {
             </label>
 
             <label class="field">
+                <span class="field-label">Nombre completo</span>
+                <input type="text" name="nombres" placeholder="Ingresa tu nombre completo" autocomplete="name" minlength="3" maxlength="120" required>
+            </label>
+
+            <label class="field">
                 <span class="field-label">Correo electronico</span>
                 <input type="email" name="email" placeholder="nombre@empresa.com" autocomplete="email" required>
             </label>
@@ -182,7 +187,7 @@ function renderRegisterForm() {
                 ${state.loading ? "Creando cuenta..." : "Crear cuenta"}
             </button>
 
-            <p class="field-caption">El nombre se completa automaticamente despues de validar tu DNI por API REST.</p>
+            <p class="field-caption">Si la API REST encuentra tu DNI, usaremos ese nombre. Si no, guardaremos el nombre completo ingresado.</p>
         </form>
     `
 }
@@ -520,12 +525,19 @@ async function handleRegister(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const dni = normalizeDni(formData.get("dni"))
+    const nombres = String(formData.get("nombres") || "").trim().replace(/\s+/g, " ")
     const email = String(formData.get("email") || "").trim()
     const password = String(formData.get("password") || "")
     const confirmPassword = String(formData.get("confirmPassword") || "")
 
     if (!/^\d{8}$/.test(dni)) {
         state.message = { type: "error", text: "Ingresa un DNI valido de exactamente 8 digitos." }
+        render()
+        return
+    }
+
+    if (nombres.length < 3) {
+        state.message = { type: "error", text: "Ingresa tu nombre completo." }
         render()
         return
     }
@@ -553,12 +565,12 @@ async function handleRegister(event) {
     try {
         await fetchJson("/api/auth/register", {
             method: "POST",
-            body: JSON.stringify({ dni, email, password })
+            body: JSON.stringify({ dni, nombres, email, password })
         })
 
         state.user = await fetchJson("/api/auth/me")
         await loadDashboardData()
-        state.message = { type: "info", text: "Cuenta creada correctamente con validacion de DNI." }
+        state.message = { type: "info", text: "Cuenta creada correctamente. Bienvenido, " + nombres + "." }
     } catch (error) {
         state.message = { type: "error", text: error.message }
     } finally {
