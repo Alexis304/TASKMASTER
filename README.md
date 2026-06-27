@@ -1,6 +1,6 @@
 # TaskMaster API
 
-TaskMaster API es una aplicacion web funcional para gestionar tareas corporativas con Spring Boot. Incluye login por sesion, panel web estilo Kanban, API REST completa, servicio SOAP propio, validacion de DNI por SOAP, datos demo y una base preparada para integraciones externas y procesos asincronos.
+TaskMaster API es una aplicacion web funcional para gestionar tareas corporativas con Spring Boot. Incluye login por sesion, panel web estilo Kanban, API REST completa, consumo de SOAP para generar reportes PDF, datos demo y una base preparada para integraciones externas y procesos asincronos.
 
 ## Stack
 
@@ -19,8 +19,9 @@ TaskMaster API es una aplicacion web funcional para gestionar tareas corporativa
 - Login web con sesion segura y Google OAuth.
 - Dashboard Kanban para listar, crear, mover, actualizar y eliminar tareas.
 - API REST para usuarios, proyectos y tareas.
-- Servicio SOAP propio para consulta de personas por DNI.
-- Registro local validando DNI contra SOAP antes de guardar usuarios.
+- Consumo de SOAP para exportar el tablero a PDF.
+- Servicio SOAP propio que recibe el resumen del tablero y devuelve el PDF en base64.
+- Validacion de DNI por SOAP como integracion adicional para registro local.
 - Datos semilla para probar la app apenas arranque.
 - Advertencia visual cuando la fecha limite cae en fin de semana.
 - Servicio asincrono base para notificaciones.
@@ -110,7 +111,7 @@ Si, el proyecto ya queda preparado para trabajar con Docker. La forma estable es
 
 1. Crea tu archivo `.env` tomando como base `.env.example`.
 2. Si vas a usar Google Login, completa tambien `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`.
-3. Si quieres forzar una URL especifica para el cliente SOAP, completa `TASKMASTER_SOAP_DNI_ENDPOINT_URI`. Si lo dejas vacio, la app se apunta sola a su endpoint local.
+3. Si quieres forzar URLs especificas para los clientes SOAP, completa `TASKMASTER_SOAP_DNI_ENDPOINT_URI` o `TASKMASTER_SOAP_REPORT_ENDPOINT_URI`. Si las dejas vacias, la app se apunta sola a su endpoint local.
 4. Levanta todo con:
 
 ```powershell
@@ -188,6 +189,7 @@ src/main/java/com/innovatech/taskmaster/
 - `GET /api/tareas`
 - `PUT /api/tareas/{id}`
 - `DELETE /api/tareas/{id}`
+- `GET /api/reportes/tablero.pdf`
 
 Filtros REST para tareas:
 
@@ -199,12 +201,23 @@ Filtros REST para tareas:
 SOAP disponible:
 
 - WSDL: `GET /ws/dni.wsdl`
+- WSDL: `GET /ws/reportes.wsdl`
 - Endpoint SOAP: `/ws`
-- Operacion: `GetPersonaByDni`
+- Operacion DNI: `GetPersonaByDni`
+- Operacion Reportes: `GenerateBoardReport`
+
+Flujo del reporte PDF:
+
+1. El usuario hace clic en `Exportar PDF`.
+2. El frontend llama a `GET /api/reportes/tablero.pdf`.
+3. El backend recopila las tareas y arma un resumen de texto.
+4. El backend consume el servicio SOAP `GenerateBoardReport`.
+5. SOAP genera el PDF, lo convierte a base64 y lo devuelve en XML.
+6. El backend decodifica el base64 y responde el archivo PDF al navegador.
 
 ## Pendientes recomendados
 
 1. Reemplazar la validacion local de fin de semana por la API real de feriados.
-2. Conectar el cliente SOAP a una fuente externa real si el curso lo exige.
+2. Conectar el cliente SOAP de reportes a un servicio externo real si el curso lo exige.
 3. Agregar wrapper de Maven.
 4. Evolucionar la seguridad a JWT si el curso lo requiere.

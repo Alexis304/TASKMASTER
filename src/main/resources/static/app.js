@@ -242,6 +242,7 @@ function renderWorkspace() {
 
                     <div class="board-actions">
                         <button id="refresh-btn" class="ghost-button" type="button">Actualizar</button>
+                        <button id="export-board-pdf" class="ghost-button" type="button">Exportar PDF</button>
                         <button id="open-task-form" class="primary-button" type="button">Nueva tarea</button>
                     </div>
                 </header>
@@ -451,6 +452,7 @@ function bindEvents() {
     })
     document.querySelector("#clear-filters")?.addEventListener("click", resetFilters)
     document.querySelector("#refresh-btn")?.addEventListener("click", () => refreshTasks(true, true))
+    document.querySelector("#export-board-pdf")?.addEventListener("click", handleExportBoardPdf)
     document.querySelector("#logout-btn")?.addEventListener("click", handleLogout)
     document.querySelector("#open-task-form")?.addEventListener("click", openTaskForm)
     document.querySelector("#close-task-form")?.addEventListener("click", closeTaskForm)
@@ -664,6 +666,28 @@ async function handleDelete(event) {
     }
 }
 
+async function handleExportBoardPdf() {
+    setLoading(true)
+
+    try {
+        const { blob, fileName } = await fetchBlob(buildReportUrl())
+        const downloadUrl = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = downloadUrl
+        link.download = fileName || "taskmaster-tablero.pdf"
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        URL.revokeObjectURL(downloadUrl)
+        state.message = { type: "info", text: "Reporte PDF generado correctamente." }
+    } catch (error) {
+        state.message = { type: "error", text: error.message }
+    } finally {
+        setLoading(false)
+        render()
+    }
+}
+
 async function refreshTasks(renderAfter = true, notify = false) {
     try {
         state.tareas = await fetchJson("/api/tareas")
@@ -677,6 +701,30 @@ async function refreshTasks(renderAfter = true, notify = false) {
     if (renderAfter) {
         render()
     }
+}
+
+function buildReportUrl() {
+    const params = new URLSearchParams()
+    const term = state.searchTerm.trim()
+
+    if (term) {
+        params.set("q", term)
+    }
+
+    if (state.activeNav.type === "project") {
+        params.set("proyectoId", state.activeNav.value)
+    }
+
+    if (state.activeNav.type === "my") {
+        params.set("usuarioId", state.user.id)
+    }
+
+    if (state.filters.assigneeId) {
+        params.set("usuarioId", state.filters.assigneeId)
+    }
+
+    const queryString = params.toString()
+    return queryString ? `/api/reportes/tablero.pdf?${queryString}` : "/api/reportes/tablero.pdf"
 }
 
 async function handleLogout() {
@@ -919,6 +967,33 @@ async function fetchJson(url, options = {}) {
     }
 
     return payload
+}
+
+async function fetchBlob(url) {
+    const response = await fetch(url, {
+        credentials: "include",
+        headers: {
+            "Accept": "application/pdf"
+        }
+    })
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            state.user = null
+            throw new Error("Tu sesion expiro. Vuelve a iniciar sesion.")
+        }
+
+        const message = await response.text()
+        throw new Error(message || "No se pudo generar el PDF.")
+    }
+
+    const disposition = response.headers.get("content-disposition") || ""
+    const match = disposition.match(/filename="?(.*?)"?$/)
+
+    return {
+        blob: await response.blob(),
+        fileName: match ? match[1] : "taskmaster-tablero.pdf"
+    }
 }
 
 function getDaysUntil(dateValue) {

@@ -18,8 +18,12 @@ import com.innovatech.taskmaster.dto.UsuarioCreateRequest;
 import com.innovatech.taskmaster.dto.UsuarioResponse;
 import com.innovatech.taskmaster.model.EstadoTarea;
 import com.innovatech.taskmaster.service.DniSoapClient;
+import com.innovatech.taskmaster.soap.dto.GenerateBoardReportRequest;
+import com.innovatech.taskmaster.soap.dto.GenerateBoardReportResponse;
 import com.innovatech.taskmaster.soap.dto.GetPersonaByDniRequest;
 import com.innovatech.taskmaster.soap.dto.GetPersonaByDniResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.URI;
@@ -114,6 +118,25 @@ class TaskmasterApiIntegrationTest {
     }
 
     @Test
+    void shouldConsumeReportSoapServiceAndReturnPdfBase64() {
+        GenerateBoardReportRequest request = new GenerateBoardReportRequest();
+        request.setTitulo("Reporte SOAP");
+        request.setGeneradoPor("test@taskmaster.local");
+        request.setFechaGeneracion("2026-06-26 12:00");
+        request.setContenido("PENDIENTE\n- Preparar tablero de pruebas");
+
+        GenerateBoardReportResponse response = (GenerateBoardReportResponse) webServiceTemplate.marshalSendAndReceive(
+            url("/ws"),
+            request
+        );
+
+        assertNotNull(response);
+        assertEquals("application/pdf", response.getContentType());
+        byte[] pdf = Base64.getDecoder().decode(response.getBase64Pdf());
+        assertTrue(new String(pdf, 0, 4, StandardCharsets.US_ASCII).startsWith("%PDF"));
+    }
+
+    @Test
     void shouldSupportCrudAndFiltersForMainRestApi() throws Exception {
         SessionHttpClient client = sessionClient();
         loginAsAdmin(client);
@@ -153,6 +176,11 @@ class TaskmasterApiIntegrationTest {
         TareaResponse[] filteredTasks = objectMapper.readValue(filteredResponse.body(), TareaResponse[].class);
         assertEquals(1, filteredTasks.length);
         assertEquals(task.id(), filteredTasks[0].id());
+
+        HttpResponse<byte[]> reportResponse = client.getBytes("/api/reportes/tablero.pdf?q=SOAP");
+        assertEquals(200, reportResponse.statusCode());
+        assertEquals("application/pdf", reportResponse.headers().firstValue("content-type").orElse(""));
+        assertTrue(new String(reportResponse.body(), 0, 4, StandardCharsets.US_ASCII).startsWith("%PDF"));
 
         HttpResponse<String> updatedResponse = client.put(
             "/api/tareas/" + task.id(),
@@ -209,6 +237,14 @@ class TaskmasterApiIntegrationTest {
                 .GET()
                 .build();
             return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        }
+
+        private HttpResponse<byte[]> getBytes(String path) throws Exception {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url(path)))
+                .header("Accept", "application/pdf")
+                .GET()
+                .build();
+            return httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
         }
 
         private HttpResponse<String> post(String path, Object payload) throws Exception {

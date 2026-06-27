@@ -8,21 +8,36 @@ import org.springframework.stereotype.Component;
 public class SoapEndpointUriResolver {
 
     private final Environment environment;
-    private final String configuredEndpointUri;
+    private final String configuredDniEndpointUri;
+    private final String configuredReportEndpointUri;
 
     public SoapEndpointUriResolver(
         Environment environment,
-        @Value("${taskmaster.soap.dni.endpoint-uri:}") String configuredEndpointUri
+        @Value("${taskmaster.soap.dni.endpoint-uri:}") String configuredDniEndpointUri,
+        @Value("${taskmaster.soap.report.endpoint-uri:}") String configuredReportEndpointUri
     ) {
         this.environment = environment;
-        this.configuredEndpointUri = configuredEndpointUri;
+        this.configuredDniEndpointUri = configuredDniEndpointUri;
+        this.configuredReportEndpointUri = configuredReportEndpointUri;
     }
 
     public String resolveDniEndpointUri() {
-        if (configuredEndpointUri != null && !configuredEndpointUri.isBlank()) {
-            return configuredEndpointUri.trim();
+        if (configuredDniEndpointUri != null && !configuredDniEndpointUri.isBlank()) {
+            return configuredDniEndpointUri.trim();
         }
 
+        return resolveLocalWsEndpoint();
+    }
+
+    public String resolveReportEndpointUri() {
+        if (configuredReportEndpointUri != null && !configuredReportEndpointUri.isBlank()) {
+            return configuredReportEndpointUri.trim();
+        }
+
+        return resolveLocalWsEndpoint();
+    }
+
+    private String resolveLocalWsEndpoint() {
         String localServerPort = environment.getProperty("local.server.port");
         if (localServerPort != null && !localServerPort.isBlank()) {
             return "http://localhost:" + localServerPort + "/ws";

@@ -4,6 +4,7 @@ import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.ws.config.annotation.EnableWs;
@@ -26,7 +27,7 @@ public class SoapWebServiceConfig {
     }
 
     @Bean(name = "dni")
-    public DefaultWsdl11Definition dniWsdlDefinition(XsdSchema dniSchema) {
+    public DefaultWsdl11Definition dniWsdlDefinition(@Qualifier("dniSchema") XsdSchema dniSchema) {
         DefaultWsdl11Definition definition = new DefaultWsdl11Definition();
         definition.setPortTypeName("DniPort");
         definition.setLocationUri("/ws");
@@ -38,6 +39,21 @@ public class SoapWebServiceConfig {
     @Bean
     public XsdSchema dniSchema() {
         return new SimpleXsdSchema(new ClassPathResource("soap/dni.xsd"));
+    }
+
+    @Bean(name = "reportes")
+    public DefaultWsdl11Definition reportesWsdlDefinition(@Qualifier("reportesSchema") XsdSchema reportesSchema) {
+        DefaultWsdl11Definition definition = new DefaultWsdl11Definition();
+        definition.setPortTypeName("ReportesPort");
+        definition.setLocationUri("/ws");
+        definition.setTargetNamespace("http://innovatech.com/taskmaster/soap/reportes");
+        definition.setSchema(reportesSchema);
+        return definition;
+    }
+
+    @Bean
+    public XsdSchema reportesSchema() {
+        return new SimpleXsdSchema(new ClassPathResource("soap/reportes.xsd"));
     }
 
     @Bean
