@@ -214,7 +214,6 @@ function renderRegisterForm() {
                 ${state.loading ? "Creando cuenta..." : "Crear cuenta"}
             </button>
 
-            <p class="field-caption">El nombre guardado sera el devuelto por la API REST de DNI cuando el documento exista.</p>
         </form>
     `
 }
