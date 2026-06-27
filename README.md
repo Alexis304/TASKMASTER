@@ -19,9 +19,9 @@ TaskMaster API es una aplicacion web funcional para gestionar tareas corporativa
 - Login web con sesion segura y Google OAuth.
 - Dashboard Kanban para listar, crear, mover, actualizar y eliminar tareas.
 - API REST para usuarios, proyectos y tareas.
+- Consumo de API REST externa para validar DNI en registros y altas de usuarios.
 - Consumo de SOAP para exportar el tablero a PDF.
 - Servicio SOAP propio que recibe el resumen del tablero y devuelve el PDF en base64.
-- Validacion de DNI por SOAP como integracion adicional para registro local.
 - Datos semilla para probar la app apenas arranque.
 - Advertencia visual cuando la fecha limite cae en fin de semana.
 - Servicio asincrono base para notificaciones.
@@ -31,16 +31,16 @@ TaskMaster API es una aplicacion web funcional para gestionar tareas corporativa
 - Usuario: `admin@taskmaster.local`
 - Password: `Admin123*`
 
-## DNIs demo para registro SOAP
+## Validacion de DNI por API REST
 
-Puedes probar el registro local con estos DNIs:
+El registro local y la creacion de usuarios consumen una API REST externa de DNI. Para habilitarlo define estas variables:
 
-- `70112233` -> Alexis Ramirez Lopez
-- `70889911` -> Camila Torres Salazar
-- `71234567` -> Mariana Paredes Diaz
-- `74567890` -> Jorge Quispe Mendoza
+```powershell
+$env:TASKMASTER_DNI_API_URL="https://apiperu.dev/api/dni"
+$env:TASKMASTER_DNI_API_TOKEN="pega-aqui-tu-token"
+```
 
-El DNI `79999999` responde como `INACTIVO` y `70000000` genera error funcional.
+El backend enviara el DNI a la API REST y completara automaticamente el nombre devuelto antes de guardar el usuario.
 
 ## Login con Google
 
@@ -111,8 +111,9 @@ Si, el proyecto ya queda preparado para trabajar con Docker. La forma estable es
 
 1. Crea tu archivo `.env` tomando como base `.env.example`.
 2. Si vas a usar Google Login, completa tambien `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`.
-3. Si quieres forzar URLs especificas para los clientes SOAP, completa `TASKMASTER_SOAP_DNI_ENDPOINT_URI` o `TASKMASTER_SOAP_REPORT_ENDPOINT_URI`. Si las dejas vacias, la app se apunta sola a su endpoint local.
-4. Levanta todo con:
+3. Completa `TASKMASTER_DNI_API_TOKEN` para habilitar registros con validacion real de DNI.
+4. Si quieres forzar URLs especificas para los clientes SOAP, completa `TASKMASTER_SOAP_DNI_ENDPOINT_URI` o `TASKMASTER_SOAP_REPORT_ENDPOINT_URI`. Si las dejas vacias, la app se apunta sola a su endpoint local.
+5. Levanta todo con:
 
 ```powershell
 docker compose up --build
@@ -200,10 +201,8 @@ Filtros REST para tareas:
 
 SOAP disponible:
 
-- WSDL: `GET /ws/dni.wsdl`
 - WSDL: `GET /ws/reportes.wsdl`
 - Endpoint SOAP: `/ws`
-- Operacion DNI: `GetPersonaByDni`
 - Operacion Reportes: `GenerateBoardReport`
 
 Flujo del reporte PDF:

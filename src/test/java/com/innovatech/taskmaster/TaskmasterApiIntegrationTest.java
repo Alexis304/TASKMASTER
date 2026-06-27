@@ -17,7 +17,9 @@ import com.innovatech.taskmaster.dto.TareaUpdateRequest;
 import com.innovatech.taskmaster.dto.UsuarioCreateRequest;
 import com.innovatech.taskmaster.dto.UsuarioResponse;
 import com.innovatech.taskmaster.model.EstadoTarea;
+import com.innovatech.taskmaster.service.DniRestClient;
 import com.innovatech.taskmaster.service.DniSoapClient;
+import com.innovatech.taskmaster.soap.client.DniPersona;
 import com.innovatech.taskmaster.soap.dto.GenerateBoardReportRequest;
 import com.innovatech.taskmaster.soap.dto.GenerateBoardReportResponse;
 import com.innovatech.taskmaster.soap.dto.GetPersonaByDniRequest;
@@ -35,9 +37,12 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.ws.client.core.WebServiceTemplate;
+
+import static org.mockito.Mockito.when;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = {
@@ -60,13 +65,22 @@ class TaskmasterApiIntegrationTest {
     @Autowired
     private DniSoapClient dniSoapClient;
 
+    @MockBean
+    private DniRestClient dniRestClient;
+
     @Autowired
     private ObjectMapper objectMapper;
 
     @Test
-    void shouldRegisterUserUsingSoapValidationAndKeepSession() throws Exception {
+    void shouldRegisterUserUsingRestDniValidationAndKeepSession() throws Exception {
         SessionHttpClient client = sessionClient();
-        String email = "soap-user-" + System.nanoTime() + "@taskmaster.local";
+        String email = "rest-user-" + System.nanoTime() + "@taskmaster.local";
+        when(dniRestClient.obtenerPersonaPorDni("71234567")).thenReturn(persona(
+            "71234567",
+            "Mariana",
+            "Paredes",
+            "Diaz"
+        ));
 
         HttpResponse<String> registerResponse = client.post("/api/auth/register", new RegisterRequest("71234567", email, "Password123*"));
         assertEquals(200, registerResponse.statusCode());
@@ -87,6 +101,9 @@ class TaskmasterApiIntegrationTest {
     void shouldRejectRegisterWhenDniDoesNotExist() throws Exception {
         SessionHttpClient client = sessionClient();
         String email = "missing-dni-" + System.nanoTime() + "@taskmaster.local";
+        when(dniRestClient.obtenerPersonaPorDni("70000000")).thenThrow(
+            new IllegalArgumentException("No se encontro informacion para el DNI indicado.")
+        );
 
         HttpResponse<String> response = client.post("/api/auth/register", new RegisterRequest("70000000", email, "Password123*"));
         assertEquals(400, response.statusCode());
@@ -140,6 +157,12 @@ class TaskmasterApiIntegrationTest {
     void shouldSupportCrudAndFiltersForMainRestApi() throws Exception {
         SessionHttpClient client = sessionClient();
         loginAsAdmin(client);
+        when(dniRestClient.obtenerPersonaPorDni("74567890")).thenReturn(persona(
+            "74567890",
+            "Jorge",
+            "Quispe",
+            "Mendoza"
+        ));
 
         HttpResponse<String> projectResponse = client.post(
             "/api/proyectos",
@@ -221,6 +244,11 @@ class TaskmasterApiIntegrationTest {
 
     private Map<String, Object> readMap(String json) throws Exception {
         return objectMapper.readValue(json, new TypeReference<>() { });
+    }
+
+    private DniPersona persona(String dni, String nombres, String apellidoPaterno, String apellidoMaterno) {
+        String nombreCompleto = String.join(" ", nombres, apellidoPaterno, apellidoMaterno);
+        return new DniPersona(dni, nombres, apellidoPaterno, apellidoMaterno, nombreCompleto, "ACTIVO");
     }
 
     private class SessionHttpClient {

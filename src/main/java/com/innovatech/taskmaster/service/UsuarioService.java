@@ -19,18 +19,18 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final TareaRepository tareaRepository;
     private final PasswordEncoder passwordEncoder;
-    private final DniSoapClient dniSoapClient;
+    private final DniRestClient dniRestClient;
 
     public UsuarioService(
         UsuarioRepository usuarioRepository,
         TareaRepository tareaRepository,
         PasswordEncoder passwordEncoder,
-        DniSoapClient dniSoapClient
+        DniRestClient dniRestClient
     ) {
         this.usuarioRepository = usuarioRepository;
         this.tareaRepository = tareaRepository;
         this.passwordEncoder = passwordEncoder;
-        this.dniSoapClient = dniSoapClient;
+        this.dniRestClient = dniRestClient;
     }
 
     public List<UsuarioResponse> listarUsuarios() {
@@ -54,7 +54,7 @@ public class UsuarioService {
             throw new IllegalArgumentException("Ya existe una cuenta registrada con este correo.");
         }
 
-        DniPersona persona = dniSoapClient.obtenerPersonaPorDni(request.dni());
+        DniPersona persona = dniRestClient.obtenerPersonaPorDni(request.dni());
         validarPersonaActiva(persona);
 
         usuario.setEmail(normalizedEmail);
@@ -90,7 +90,7 @@ public class UsuarioService {
             throw new IllegalArgumentException("Ya existe una cuenta registrada con este correo.");
         }
 
-        DniPersona persona = dniSoapClient.obtenerPersonaPorDni(dni);
+        DniPersona persona = dniRestClient.obtenerPersonaPorDni(dni);
         validarPersonaActiva(persona);
 
         Usuario usuario = new Usuario();

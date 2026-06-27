@@ -20,6 +20,10 @@ services:
         sync: false
       - key: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET
         sync: false
+      - key: TASKMASTER_DNI_API_URL
+        value: https://apiperu.dev/api/dni
+      - key: TASKMASTER_DNI_API_TOKEN
+        sync: false
 
 databases:
   - name: taskmaster-db
